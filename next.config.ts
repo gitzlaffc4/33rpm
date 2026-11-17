@@ -20,7 +20,8 @@ const nextConfig: NextConfig = {
       "./node_modules/better-sqlite3/prebuilds/linux-arm64.node",
     ],
   },
-  env: { APP_VERSION: pkg.version },
+  // package.json is the single source of truth for the version.
+  env: { APP_VERSION: pkg.version, APP_COMMIT: process.env.APP_COMMIT ?? "" },
   poweredByHeader: false,
   turbopack: {
     rules: {
