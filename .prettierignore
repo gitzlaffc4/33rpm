@@ -13,3 +13,4 @@ README.md
 docs
 .e2e
 e2e/.server.log
+e2e/.auth.json
