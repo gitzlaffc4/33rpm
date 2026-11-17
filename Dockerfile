@@ -4,9 +4,8 @@
 # Debian slim (glibc) so better-sqlite3's bundled prebuilt binaries are used on
 # both architectures; no compiler toolchain is needed.
 
-ARG NODE_VERSION=24
-
-FROM node:${NODE_VERSION}-bookworm-slim AS base
+# Base image pinned by digest (multi-arch index); Dependabot keeps the digest current.
+FROM node:24-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS base
 ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 
@@ -17,9 +16,12 @@ RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
 # --- build ---
 FROM base AS build
+# Git commit baked into the app (Settings → About, /api/health). The version comes
+# from package.json at build time.
+ARG REVISION=unknown
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN APP_COMMIT="${REVISION}" npm run build
 # Fail the build (on each architecture) unless better-sqlite3's prebuilt binary for
 # this platform is in the standalone output and actually loads. No compile step
 # exists: the binary ships inside the npm package (see .npmrc).
@@ -31,6 +33,7 @@ RUN node -e "const D=require('./.next/standalone/node_modules/better-sqlite3'); 
 
 # --- runtime ---
 FROM base AS runtime
+# VERSION should be package.json's version (the release workflows pass it).
 ARG VERSION=dev
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="33rpm" \
