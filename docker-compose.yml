@@ -1,0 +1,22 @@
+# Example deployment. Put your settings in a `.env` file next to this file
+# (start from .env.example), then: docker compose up -d
+#
+# On first start, get the one-time setup code from the logs:
+#   docker compose logs 33rpm | grep -A2 "setup code"
+services:
+  33rpm:
+    image: ghcr.io/gitzlaffc4/33rpm:latest
+    container_name: 33rpm
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      # The container chowns /data to this user and runs the app as it.
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+    volumes:
+      # SQLite database, cached cover art, uploaded photos and backups.
+      - ./data:/data
