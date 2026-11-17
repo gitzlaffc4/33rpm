@@ -155,3 +155,27 @@ vite.config.ts.timestamp-*
 .nx/cache
 .nx/workspace-data
 .nx/migrate-runs
+
+# --- 33rpm ---
+/.next/
+/out/
+/build
+next-env.d.ts
+.DS_Store
+*.pem
+.env
+.env.*
+!.env.example
+# local data (SQLite DB, images, backups) — never commit
+/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+# test output
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/.e2e/
+/e2e/.server.log

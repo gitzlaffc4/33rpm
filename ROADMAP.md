@@ -10,19 +10,33 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 ## Phase 0 — Foundation
 **Goal:** An empty but real app that builds, runs in Docker on a Pi, and lets me log in.
 
-- [ ] Next.js + TypeScript (strict) + Tailwind + shadcn/ui scaffold
-- [ ] ESLint, Prettier, Vitest, Playwright configured; `lint`, `typecheck`, `test` scripts
-- [ ] Zod-validated env (`src/env.ts`) + `.env.example`
-- [ ] Drizzle + SQLite wired to `/data/33rpm.db`; migrations run on container start
-- [ ] Auth: generic OIDC provider + local admin fallback (first-run setup screen)
-- [ ] App shell: sidebar/tab bar nav (Library, Wishlist, Add, Stats, Settings), dark mode default
-- [ ] Settings page: Discogs token, default currency, user profile
-- [ ] Multi-stage Dockerfile, non-root user, healthcheck endpoint (`/api/health`)
-- [ ] `docker-compose.yml` example with `/data` volume
-- [ ] GitHub Actions: lint/typecheck/test on PR; build + push multi-arch image to GHCR on tag
-- [ ] README skeleton (what it is, quick start, env vars)
+- [x] Next.js + TypeScript (strict) + Tailwind + shadcn/ui scaffold
+- [x] ESLint, Prettier, Vitest, Playwright configured; `lint`, `typecheck`, `test` scripts
+- [x] Zod-validated env (`src/env.ts`) + `.env.example`
+- [x] Drizzle + SQLite wired to `/data/33rpm.db`; migrations run on container start
+- [x] Auth: generic OIDC provider + local admin fallback (first-run setup screen)
+- [x] App shell: sidebar/tab bar nav (Library, Wishlist, Add, Stats, Settings), dark mode default
+- [x] Settings page: Discogs token, default currency, user profile
+- [x] Multi-stage Dockerfile, non-root user, healthcheck endpoint (`/api/health`)
+- [x] `docker-compose.yml` example with `/data` volume
+- [x] GitHub Actions: lint/typecheck/test on PR; build + push multi-arch image to GHCR on tag
+- [x] README skeleton (what it is, quick start, env vars)
 
 ✅ `docker compose up` on an arm64 host serves the app; OIDC login works; CI is green.
+
+---
+
+## Phase 0.5 — Dual database support
+**Goal:** SQLite and PostgreSQL as peer backends, selected by `DATABASE_URL`. See `docs/addendum-01-postgres-support.md`.
+
+- [ ] `DATABASE_URL` parsing + dialect detection; replace `DATABASE_PATH`
+- [ ] Per-dialect schema trees (auth + settings tables) and migration folders
+- [ ] `withTransaction()` helper; repo layer for existing settings/auth access
+- [ ] Advisory-lock-guarded migrations on Postgres
+- [ ] Schema parity test; CI matrix (sqlite + postgres) for integration tests
+- [ ] `docker-compose.postgres.yml`; README "Choosing a database"
+
+✅ Fresh install works on both backends; CI green on both; switching is only an env change on an empty DB.
 
 ---
 
@@ -40,6 +54,7 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 - [ ] Copy edit: Goldmine conditions, price/date/source, location, notes, tags, photos
 - [ ] Duplicate warning when adding a release I already own
 - [ ] Seed script (~20 sample releases across formats) for dev
+- [ ] Every new table lands in both schema trees (SQLite + Postgres) with both migrations; repos tested on both
 
 ✅ I can search "Rumours", choose the exact pressing I own, set its condition and shelf, and see it in the grid within seconds. Works with no Discogs token (MusicBrainz only).
 
@@ -81,8 +96,13 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 - [ ] CSV + JSON export of everything
 - [ ] Automatic nightly SQLite snapshots in `/data/backups` (retention configurable)
 - [ ] Restore-from-backup docs
+- [ ] Shared copy engine (`src/db/copy/`) used by DB switching and JSON export/import
+- [ ] In-app "Import existing library" startup flow (setup-code protected; `MIGRATE_FROM_URL` or default SQLite file when on Postgres)
+- [ ] `db:copy` CLI, both directions (SQLite ⇄ Postgres), with `--dry-run`
+- [ ] Document `pg_dump` for Postgres backups
 
 ✅ A Discogs collection of 500+ items imports unattended within rate limits, and a re-run changes nothing.
+✅ Switching SQLite → Postgres is: change `DATABASE_URL`, restart, confirm import, log in — with all data and images intact.
 
 ---
 
@@ -93,7 +113,8 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 - [ ] Filters + sort on every library view (format, genre, decade, condition, location, tag, price)
 - [ ] Stats dashboard: counts by format/genre/decade/label, spend over time, recently added
 - [ ] Empty states, loading skeletons, error handling, toasts
-- [ ] Performance check on a Pi 5 with 2,000+ items
+- [ ] `SearchIndex` implementations for SQLite (FTS5) and Postgres (tsvector + pg_trgm)
+- [ ] Performance check on a Pi 5 with 2,000+ items, on both SQLite and Postgres
 - [ ] Docs: full README with screenshots, Portainer stack example, reverse-proxy/HTTPS notes, Discogs token how-to, backup/restore
 - [ ] Choose and add LICENSE (MIT vs AGPL-3.0), CONTRIBUTING.md, issue templates
 - [ ] Tag `v1.0.0`, publish image
@@ -115,6 +136,7 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 - [ ] Multi-user / household with per-user or shared collections and wishlists
 - [ ] Personal API tokens + documented REST API
 - [ ] MCP server so AI assistants can answer "do I own this?" / "add to wishlist"
+- [ ] User management UI (create/invite additional users; today the first admin comes from `/setup` and others only via `OIDC_AUTO_SIGNUP`)
 - [ ] Cover-art photo recognition (identify a release from a photo of the sleeve)
 - [ ] Other physical media formats as plugins (if ever wanted)
 

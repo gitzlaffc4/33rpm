@@ -1,0 +1,17 @@
+.git
+.github
+node_modules
+.next
+.e2e
+data
+coverage
+test-results
+playwright-report
+e2e/.server.log
+.env
+.env.*
+!.env.example
+*.db
+*.db-*
+Dockerfile
+docker-compose*.yml

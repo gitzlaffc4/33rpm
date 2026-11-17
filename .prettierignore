@@ -1,0 +1,15 @@
+node_modules
+.next
+drizzle
+data
+coverage
+playwright-report
+test-results
+package-lock.json
+AGENTS.md
+CLAUDE.md
+ROADMAP.md
+README.md
+docs
+.e2e
+e2e/.server.log
