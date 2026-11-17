@@ -18,7 +18,7 @@ The phased plan lives in `ROADMAP.md`. Work one phase at a time (see "How to wor
 |---|---|
 | Framework | Next.js (current stable, App Router) + TypeScript (strict) |
 | UI | Tailwind CSS + shadcn/ui, lucide icons |
-| Database | SQLite (better-sqlite3) via Drizzle ORM; migrations committed and run on startup |
+| Database | SQLite (better-sqlite3, default) **or** PostgreSQL (pg), selected by `DATABASE_URL`; Drizzle ORM with separate per-dialect schema trees and migration folders. Follow `docs/addendum-01-postgres-support.md`. |
 | Auth | Better Auth (or Auth.js if materially simpler) — generic OIDC provider + local admin fallback |
 | Barcode scanning | `@zxing/browser` (iOS Safari lacks reliable `BarcodeDetector`) |
 | Background work | In-process queue with per-provider rate limiting (e.g. p-queue). No Redis. |
@@ -102,6 +102,7 @@ interface MetadataProvider {
 - Mobile-first. Dark mode is the default. Album art is the hero of every screen.
 - Accessibility: keyboard-navigable, labeled controls, sufficient contrast.
 - No telemetry, no external calls except the configured metadata/integration providers.
+- Database portability rules in `docs/addendum-01-postgres-support.md` are mandatory for every schema and query change.
 
 ---
 

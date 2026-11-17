@@ -26,6 +26,20 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 
 ---
 
+## Phase 0.5 — Dual database support
+**Goal:** SQLite and PostgreSQL as peer backends, selected by `DATABASE_URL`. See `docs/addendum-01-postgres-support.md`.
+
+- [ ] `DATABASE_URL` parsing + dialect detection; replace `DATABASE_PATH`
+- [ ] Per-dialect schema trees (auth + settings tables) and migration folders
+- [ ] `withTransaction()` helper; repo layer for existing settings/auth access
+- [ ] Advisory-lock-guarded migrations on Postgres
+- [ ] Schema parity test; CI matrix (sqlite + postgres) for integration tests
+- [ ] `docker-compose.postgres.yml`; README "Choosing a database"
+
+✅ Fresh install works on both backends; CI green on both; switching is only an env change on an empty DB.
+
+---
+
 ## Phase 1 — Catalog core
 **Goal:** Add items by search and see them in a good-looking library.
 
@@ -40,6 +54,7 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 - [ ] Copy edit: Goldmine conditions, price/date/source, location, notes, tags, photos
 - [ ] Duplicate warning when adding a release I already own
 - [ ] Seed script (~20 sample releases across formats) for dev
+- [ ] Every new table lands in both schema trees (SQLite + Postgres) with both migrations; repos tested on both
 
 ✅ I can search "Rumours", choose the exact pressing I own, set its condition and shelf, and see it in the grid within seconds. Works with no Discogs token (MusicBrainz only).
 
@@ -81,8 +96,13 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 - [ ] CSV + JSON export of everything
 - [ ] Automatic nightly SQLite snapshots in `/data/backups` (retention configurable)
 - [ ] Restore-from-backup docs
+- [ ] Shared copy engine (`src/db/copy/`) used by DB switching and JSON export/import
+- [ ] In-app "Import existing library" startup flow (setup-code protected; `MIGRATE_FROM_URL` or default SQLite file when on Postgres)
+- [ ] `db:copy` CLI, both directions (SQLite ⇄ Postgres), with `--dry-run`
+- [ ] Document `pg_dump` for Postgres backups
 
 ✅ A Discogs collection of 500+ items imports unattended within rate limits, and a re-run changes nothing.
+✅ Switching SQLite → Postgres is: change `DATABASE_URL`, restart, confirm import, log in — with all data and images intact.
 
 ---
 
@@ -93,7 +113,8 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 - [ ] Filters + sort on every library view (format, genre, decade, condition, location, tag, price)
 - [ ] Stats dashboard: counts by format/genre/decade/label, spend over time, recently added
 - [ ] Empty states, loading skeletons, error handling, toasts
-- [ ] Performance check on a Pi 5 with 2,000+ items
+- [ ] `SearchIndex` implementations for SQLite (FTS5) and Postgres (tsvector + pg_trgm)
+- [ ] Performance check on a Pi 5 with 2,000+ items, on both SQLite and Postgres
 - [ ] Docs: full README with screenshots, Portainer stack example, reverse-proxy/HTTPS notes, Discogs token how-to, backup/restore
 - [ ] Choose and add LICENSE (MIT vs AGPL-3.0), CONTRIBUTING.md, issue templates
 - [ ] Tag `v1.0.0`, publish image
