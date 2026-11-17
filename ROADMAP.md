@@ -35,6 +35,10 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 - [ ] Advisory-lock-guarded migrations on Postgres
 - [ ] Schema parity test; CI matrix (sqlite + postgres) for integration tests
 - [ ] `docker-compose.postgres.yml`; README "Choosing a database"
+- [ ] Admin CLI bundled as `dist/cli.js` (`docker exec 33rpm node dist/cli.js …`), using the repo layer so it works on both backends:
+  - `reset-password <email>` — prompts for a new password (or generates and prints a temporary one), updates it via Better Auth's hasher, revokes all of that user's sessions
+  - `create-setup-code` — prints a fresh first-run setup code; refuses if any user exists
+- [ ] README "Recovery" section documenting both commands
 
 ✅ Fresh install works on both backends; CI green on both; switching is only an env change on an empty DB.
 
