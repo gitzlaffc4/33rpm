@@ -10,17 +10,17 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 ## Phase 0 — Foundation
 **Goal:** An empty but real app that builds, runs in Docker on a Pi, and lets me log in.
 
-- [ ] Next.js + TypeScript (strict) + Tailwind + shadcn/ui scaffold
-- [ ] ESLint, Prettier, Vitest, Playwright configured; `lint`, `typecheck`, `test` scripts
-- [ ] Zod-validated env (`src/env.ts`) + `.env.example`
-- [ ] Drizzle + SQLite wired to `/data/33rpm.db`; migrations run on container start
-- [ ] Auth: generic OIDC provider + local admin fallback (first-run setup screen)
-- [ ] App shell: sidebar/tab bar nav (Library, Wishlist, Add, Stats, Settings), dark mode default
-- [ ] Settings page: Discogs token, default currency, user profile
-- [ ] Multi-stage Dockerfile, non-root user, healthcheck endpoint (`/api/health`)
-- [ ] `docker-compose.yml` example with `/data` volume
-- [ ] GitHub Actions: lint/typecheck/test on PR; build + push multi-arch image to GHCR on tag
-- [ ] README skeleton (what it is, quick start, env vars)
+- [x] Next.js + TypeScript (strict) + Tailwind + shadcn/ui scaffold
+- [x] ESLint, Prettier, Vitest, Playwright configured; `lint`, `typecheck`, `test` scripts
+- [x] Zod-validated env (`src/env.ts`) + `.env.example`
+- [x] Drizzle + SQLite wired to `/data/33rpm.db`; migrations run on container start
+- [x] Auth: generic OIDC provider + local admin fallback (first-run setup screen)
+- [x] App shell: sidebar/tab bar nav (Library, Wishlist, Add, Stats, Settings), dark mode default
+- [x] Settings page: Discogs token, default currency, user profile
+- [x] Multi-stage Dockerfile, non-root user, healthcheck endpoint (`/api/health`)
+- [x] `docker-compose.yml` example with `/data` volume
+- [x] GitHub Actions: lint/typecheck/test on PR; build + push multi-arch image to GHCR on tag
+- [x] README skeleton (what it is, quick start, env vars)
 
 ✅ `docker compose up` on an arm64 host serves the app; OIDC login works; CI is green.
 
@@ -136,6 +136,7 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 - [ ] Multi-user / household with per-user or shared collections and wishlists
 - [ ] Personal API tokens + documented REST API
 - [ ] MCP server so AI assistants can answer "do I own this?" / "add to wishlist"
+- [ ] User management UI (create/invite additional users; today the first admin comes from `/setup` and others only via `OIDC_AUTO_SIGNUP`)
 - [ ] Cover-art photo recognition (identify a release from a photo of the sleeve)
 - [ ] Other physical media formats as plugins (if ever wanted)
 
