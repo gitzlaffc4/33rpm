@@ -120,8 +120,10 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 - [ ] `SearchIndex` implementations for SQLite (FTS5) and Postgres (tsvector + pg_trgm)
 - [ ] Performance check on a Pi 5 with 2,000+ items, on both SQLite and Postgres
 - [ ] Docs: full README with screenshots, Portainer stack example, reverse-proxy/HTTPS notes, Discogs token how-to, backup/restore
-- [ ] Choose and add LICENSE (MIT vs AGPL-3.0), CONTRIBUTING.md, issue templates
-- [ ] Tag `v1.0.0`, publish image
+- [ ] Choose and add LICENSE (MIT vs AGPL-3.0); replace the README license badge placeholder
+- [x] CONTRIBUTING.md, PR/issue templates, SECURITY.md (landed early with repo conventions)
+- [ ] Docker image hardening: remove npm/npx/corepack from the runtime stage (Trivy flags HIGH CVEs in the base image's bundled npm; the app never uses it at runtime)
+- [ ] Release `v1.0.0` via release-please (`Release-As: 1.0.0`), publish image
 
 ✅ A stranger can go from README to a running instance with their Discogs collection imported.
 

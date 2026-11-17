@@ -1,5 +1,11 @@
 # 33rpm
 
+[![CI](https://github.com/gitzlaffc4/33rpm/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/gitzlaffc4/33rpm/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/gitzlaffc4/33rpm?include_prereleases&sort=semver)](https://github.com/gitzlaffc4/33rpm/releases)
+[![CodeQL](https://github.com/gitzlaffc4/33rpm/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/gitzlaffc4/33rpm/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/gitzlaffc4/33rpm/badge)](https://securityscorecards.dev/viewer/?uri=github.com/gitzlaffc4/33rpm)
+[![License: TBD](https://img.shields.io/badge/license-TBD-lightgrey)](ROADMAP.md)
+
 33rpm is a self-hosted library for your physical music collection. Scan barcodes or search by title to add the exact pressing, track condition and shelf location, and keep a wishlist of what you're hunting. Discogs + MusicBrainz metadata, Docker-ready, runs on a Raspberry Pi.
 
 > **Status:** early development. Phase 0 (foundation: auth, app shell, settings, Docker, CI) is
@@ -190,8 +196,20 @@ Notes:
 - Disable Next.js's own build telemetry locally with `export NEXT_TELEMETRY_DISABLED=1` (the
   Docker image and CI already do).
 
-### Releases
+### Contributing & releases
 
-Push a tag matching `package.json`'s version (e.g. `v0.1.0`). GitHub Actions builds amd64 and
-arm64 natively, merges them into one manifest, and publishes `ghcr.io/gitzlaffc4/33rpm` with
-`X.Y.Z`, `X.Y`, `X` and `latest` tags.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for branch and commit conventions (Conventional Commits,
+squash merges) and the automated checks. Releases are cut by
+[release-please](https://github.com/googleapis/release-please): merging its Release PR tags the
+version, updates [CHANGELOG.md](CHANGELOG.md), and publishes a multi-arch image to
+`ghcr.io/gitzlaffc4/33rpm`:
+
+| Tag                   | What it is                                               |
+| --------------------- | -------------------------------------------------------- |
+| `latest`, `X`, `X.Y`  | Latest stable release                                    |
+| `X.Y.Z`               | A specific release (including `X.Y.Z-alpha.N` pre-releases) |
+| `edge`                | Latest commit on `main` (may be unstable)                |
+
+Images include an SBOM and signed build provenance; verify with
+`gh attestation verify oci://ghcr.io/gitzlaffc4/33rpm:<tag> --owner gitzlaffc4`.
+Security issues: see [SECURITY.md](SECURITY.md).
