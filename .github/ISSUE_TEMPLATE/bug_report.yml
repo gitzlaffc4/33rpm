@@ -1,0 +1,71 @@
+name: Bug report
+description: Something isn't working as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please don't include secrets, tokens, or personal hostnames.
+        Security issues: use **Report a security vulnerability** instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to …
+        2. Click …
+        3. See …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Settings → About, or `curl <APP_URL>/api/health`.
+      placeholder: "0.1.0 (abc1234)"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How do you run 33rpm?
+      options:
+        - Docker / Compose
+        - Portainer or another Docker UI
+        - From source (npm)
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: arch
+    attributes:
+      label: Architecture
+      options:
+        - linux/arm64 (e.g. Raspberry Pi)
+        - linux/amd64
+        - Other / not sure
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database
+      options:
+        - SQLite (default)
+        - PostgreSQL
+  - type: input
+    id: browser
+    attributes:
+      label: Browser / device
+      placeholder: "Safari on iPhone 15, Firefox 140 on Linux, …"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: "`docker logs 33rpm`. Remove anything sensitive."
+      render: shell
