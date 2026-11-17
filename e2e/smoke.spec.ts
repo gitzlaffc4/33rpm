@@ -2,6 +2,10 @@ import fs from "node:fs";
 
 import { expect, test, type Page } from "@playwright/test";
 
+// Signed-in browser state saved by the setup test and reused below, so the suite
+// performs only two password sign-ins in total (Better Auth rate-limits sign-in).
+const AUTH_STATE = "e2e/.auth.json";
+
 const ADMIN = { name: "Test Admin", email: "admin@example.com", password: "correct-horse-battery" };
 
 function setupCodeFromLogs(): string {
@@ -53,12 +57,22 @@ test.describe("first run", () => {
     await expect(page.getByRole("heading", { name: "Library", exact: true })).toBeVisible();
 
     // Setup is closed once an admin exists.
+    // (/setup → /login → already signed in → /library)
     await page.goto("/setup");
-    await expect(page).not.toHaveURL(/\/setup$/);
+    await expect(page).toHaveURL(/\/library$/);
+
+    // The admin's password (hashed by Better Auth's hasher during setup) works for a
+    // normal password login after signing out.
+    await page.goto("/settings");
+    await page.getByRole("button", { name: "Sign out" }).filter({ visible: true }).first().click();
+    await expect(page).toHaveURL(/\/login$/);
+    await login(page);
+    await expect(page.getByText(ADMIN.email).filter({ visible: true }).first()).toBeVisible();
+    await page.context().storageState({ path: AUTH_STATE });
   });
 });
 
-test.describe("signed in", () => {
+test.describe("signed out", () => {
   test("rejects a wrong password", async ({ page }, info) => {
     // Once is enough: repeated failures trip the (intended) sign-in rate limit.
     test.skip(info.project.name !== "desktop", "desktop only");
@@ -68,9 +82,13 @@ test.describe("signed in", () => {
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page.getByText("Incorrect email or password.")).toBeVisible();
   });
+});
+
+test.describe("signed in", () => {
+  test.use({ storageState: AUTH_STATE });
 
   test("app shell navigation and settings", async ({ page }) => {
-    await login(page);
+    await page.goto("/library");
     for (const name of ["Wishlist", "Add", "Stats", "Settings", "Library"]) {
       await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name }).click();
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -88,7 +106,7 @@ test.describe("signed in", () => {
   });
 
   test("unauthenticated users are sent to login", async ({ browser }) => {
-    const ctx = await browser.newContext();
+    const ctx = await browser.newContext({ storageState: undefined });
     const page = await ctx.newPage();
     await page.goto("/settings");
     await expect(page).toHaveURL(/\/login\?next=%2Fsettings$/);

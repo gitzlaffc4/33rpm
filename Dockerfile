@@ -20,6 +20,14 @@ FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
+# Fail the build (on each architecture) unless better-sqlite3's prebuilt binary for
+# this platform is in the standalone output and actually loads. No compile step
+# exists: the binary ships inside the npm package (see .npmrc).
+RUN node -e "const D=require('./.next/standalone/node_modules/better-sqlite3'); \
+  const v=new D(':memory:').prepare('select sqlite_version() v').get().v; \
+  console.log('better-sqlite3 OK on '+process.platform+'-'+process.arch+', SQLite '+v)" \
+ && test -f .next/standalone/node_modules/better-sqlite3/prebuilds/linux-x64.node \
+ && test -f .next/standalone/node_modules/better-sqlite3/prebuilds/linux-arm64.node
 
 # --- runtime ---
 FROM base AS runtime

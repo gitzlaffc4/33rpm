@@ -9,8 +9,17 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   // Native module: keep it out of the bundle and trace it into the standalone output.
   serverExternalPackages: ["better-sqlite3"],
-  // Migrations are read from disk at startup; make sure standalone output includes them.
-  outputFileTracingIncludes: { "/**": ["./drizzle/**/*"] },
+  // Files read at runtime that tracing can't see (or only sees for the build host):
+  // - migrations, read from disk at startup
+  // - better-sqlite3's glibc prebuilds for BOTH image architectures. Tracing on its
+  //   own only copies the binary matching the build machine's process.arch.
+  outputFileTracingIncludes: {
+    "/**": [
+      "./drizzle/**/*",
+      "./node_modules/better-sqlite3/prebuilds/linux-x64.node",
+      "./node_modules/better-sqlite3/prebuilds/linux-arm64.node",
+    ],
+  },
   env: { APP_VERSION: pkg.version },
   poweredByHeader: false,
   turbopack: {

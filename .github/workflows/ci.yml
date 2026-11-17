@@ -26,6 +26,10 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      # The binding comes from the prebuilds bundled in the package (see .npmrc);
+      # fail early and clearly if this platform has none.
+      - name: Verify better-sqlite3 native binding
+        run: node -e "const D=require('better-sqlite3'); console.log('SQLite', new D(':memory:').prepare('select sqlite_version() v').get().v)"
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
