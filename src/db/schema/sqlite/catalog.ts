@@ -301,3 +301,36 @@ export const providerCache = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.provider, t.cacheKey] })],
 );
+
+export const SCAN_STATUSES = [
+  "pending",
+  "matched",
+  "ambiguous",
+  "not_found",
+  "error",
+  "added",
+  "dismissed",
+] as const;
+
+/**
+ * Crate mode (Phase 2): every scanned barcode queues a background lookup; the user reviews
+ * and confirms the queue afterwards. `candidates` holds the provider candidates found.
+ */
+export const scanItem = sqliteTable(
+  "scan_item",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    barcode: text("barcode").notNull(),
+    status: text("status", { enum: SCAN_STATUSES }).notNull().default("pending"),
+    candidates: text("candidates", { mode: "json" }).$type<unknown[]>().notNull(),
+    /** Set when the barcode matched a release already in the local catalog. */
+    releaseId: text("release_id").references(() => release.id, { onDelete: "set null" }),
+    copyId: text("copy_id").references(() => copy.id, { onDelete: "set null" }),
+    error: text("error"),
+    ...timestamps,
+  },
+  (t) => [index("scan_item_user_status_idx").on(t.userId, t.status)],
+);

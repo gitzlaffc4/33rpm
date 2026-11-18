@@ -68,6 +68,7 @@ async function ManualEntry({ searchParams }: Pick<PageProps<"/add/manual">, "sea
     masterParam ? getMasterPage(user.id, masterParam) : Promise.resolve(null),
   ]);
   const title = master?.master.title ?? (typeof p.title === "string" ? p.title : "");
+  const barcode = typeof p.barcode === "string" ? p.barcode : "";
 
   return (
     <CopyForm
@@ -110,7 +111,7 @@ async function ManualEntry({ searchParams }: Pick<PageProps<"/add/manual">, "sea
           </div>
           <Field id="year" label="Year" inputMode="numeric" pattern="\d{4}" placeholder="1977" />
           <Field id="country" label="Country" placeholder="US" />
-          <Field id="barcode" label="Barcode" inputMode="numeric" />
+          <Field id="barcode" label="Barcode" inputMode="numeric" defaultValue={barcode} />
         </div>
         <Field
           id="formatDetails"

@@ -131,7 +131,10 @@ test.describe("signed in", () => {
     await field("Title").fill(title);
     await field("Format").selectOption("cassette");
     await field("Year").fill("1999");
-    await field("Barcode").fill("0 12345 67890 5");
+    // Unique per project: the camera test scans the desktop one (012345678905).
+    await field("Barcode").fill(
+      info.project.name === "desktop" ? "0 12345 67890 5" : "036000291452",
+    );
     await field("Tracklist").fill("A1 Side One 3:01\nB1 Side Two 4:20");
     await field("Media").selectOption("VG+");
     await field("Price").fill("12.50");
@@ -171,7 +174,7 @@ test.describe("signed in", () => {
 
     await page.goto(`/library?q=${encodeURIComponent("basement tapes")}`);
     await expect(
-      page.getByRole("link", { name: new RegExp(title.replace(/[()]/g, "\\$&")) }),
+      page.getByRole("link", { name: new RegExp(title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) }),
     ).toBeVisible();
     await page.goto("/library?view=locations");
     await expect(

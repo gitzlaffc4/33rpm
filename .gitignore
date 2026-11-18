@@ -183,3 +183,4 @@ next-env.d.ts
 
 # CLI bundle (npm run build:cli)
 /dist/
+/e2e/.barcode.y4m

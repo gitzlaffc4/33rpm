@@ -24,6 +24,7 @@ import { newId } from "@/db/ids";
 import type { Schema } from "@/db/schema";
 import { exclusive, withTransaction } from "@/db/tx";
 import {
+  barcodeVariants,
   defaultSortName,
   normalizeBarcode,
   normalizeCatalogNumber,
@@ -403,12 +404,12 @@ export async function findReleasesByBarcode(
   code: string,
   h: DbHandle = getDb(),
 ): Promise<string[]> {
-  const norm = normalizeBarcode(code);
-  if (!norm) return [];
+  const variants = barcodeVariants(code);
+  if (!variants.length) return [];
   const rows = await h.db
     .selectDistinct({ id: h.t.releaseBarcode.releaseId })
     .from(h.t.releaseBarcode)
-    .where(eq(h.t.releaseBarcode.barcodeNorm, norm));
+    .where(inArray(h.t.releaseBarcode.barcodeNorm, variants));
   return rows.map((r) => r.id);
 }
 

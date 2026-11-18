@@ -21,9 +21,35 @@ export default defineConfig({
       ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } }
       : {}),
   },
+  globalSetup: "./e2e/global-setup.ts",
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
-    { name: "mobile", use: { ...devices["Pixel 7"] }, dependencies: ["desktop"] },
+    { name: "desktop", use: { ...devices["Desktop Chrome"] }, testIgnore: /scan\.spec/ },
+    {
+      name: "mobile",
+      use: { ...devices["Pixel 7"] },
+      dependencies: ["desktop"],
+      testIgnore: /scan\.spec/,
+    },
+    {
+      // Fake camera showing a generated barcode (see e2e/global-setup.ts).
+      name: "camera",
+      testMatch: /scan\.spec/,
+      dependencies: ["mobile"],
+      use: {
+        ...devices["Pixel 7"],
+        permissions: ["camera"],
+        launchOptions: {
+          ...(process.env.PLAYWRIGHT_CHROMIUM_PATH
+            ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH }
+            : {}),
+          args: [
+            "--use-fake-ui-for-media-stream",
+            "--use-fake-device-for-media-stream",
+            "--use-file-for-fake-video-capture=e2e/.barcode.y4m",
+          ],
+        },
+      },
+    },
   ],
   webServer: {
     command: "./scripts/e2e-server.sh",

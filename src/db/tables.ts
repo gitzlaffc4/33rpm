@@ -28,6 +28,7 @@ export const TABLES_IN_DEPENDENCY_ORDER = [
   "wishlist_item",
   "wishlist_tag",
   "provider_cache",
+  "scan_item",
 ] as const;
 
 export type TableName = (typeof TABLES_IN_DEPENDENCY_ORDER)[number];

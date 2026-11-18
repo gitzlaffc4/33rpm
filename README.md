@@ -82,6 +82,27 @@ third parties.
 If the server reaches the internet through an HTTP(S) proxy, set `NODE_USE_ENV_PROXY=1` along
 with `HTTPS_PROXY` (Node's `fetch` ignores proxy variables otherwise).
 
+## Scanning & the phone app
+
+33rpm is an installable web app (PWA). On your phone, open it and choose **Add to Home Screen**
+(iOS Safari: Share → Add to Home Screen; Android Chrome: menu → Install app). It opens
+full-screen; without a connection it shows an offline page (your library itself always lives on
+the server, so nothing private is cached on the device).
+
+- **Scan** (Add → Scan) uses the camera to read EAN/UPC barcodes, with a beep and a buzz on
+  each hit. You can always type the barcode instead.
+- **Crate mode** keeps the camera running: scan item after item, and each barcode is looked
+  up in the background (barcodes already in your catalog resolve instantly). Then open
+  **Review & add**: single matches are pre-selected, barcodes shared by several pressings ask
+  you to pick one, unknown ones link to manual entry, and one condition/location applies to
+  everything you add. Lookups that were still running when the server restarted resume on
+  startup.
+
+> **The camera needs HTTPS.** Browsers only allow camera access on secure origins
+> (`https://…`, or `http://localhost`). Over plain `http://` on your LAN, scanning is
+> disabled and you can type barcodes instead. Put 33rpm behind a reverse proxy with a
+> certificate (see [Reverse proxy & HTTPS](#reverse-proxy--https)).
+
 ## Configuration
 
 All configuration is via environment variables (see [`.env.example`](.env.example)). Invalid
