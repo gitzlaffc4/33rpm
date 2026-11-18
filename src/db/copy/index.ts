@@ -12,6 +12,7 @@ import { getTableConfig, SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { DbHandle } from "@/db/client";
 import { sqliteSchema } from "@/db/schema";
 import { TABLES_IN_DEPENDENCY_ORDER, type TableName } from "@/db/tables";
+import { getSearchIndex } from "@/db/search";
 import { withTransaction } from "@/db/tx";
 
 export type Row = Record<string, unknown>;
@@ -134,6 +135,8 @@ export async function copyInto(
       opts.onTable?.(name, n);
     }
   }, target);
+  // The search index is derived data: rebuild it for the copied catalog.
+  await getSearchIndex(target).rebuild();
   return {
     source: source.describe,
     target: target.dialect === "pg" ? "PostgreSQL" : "SQLite",
