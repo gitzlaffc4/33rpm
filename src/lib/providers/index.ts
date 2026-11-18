@@ -6,7 +6,13 @@ import { resolveDiscogsToken } from "@/lib/discogs-token";
 import { createDiscogsProvider } from "./discogs";
 import { ProviderError } from "./http";
 import { createMusicBrainzProvider } from "./musicbrainz";
-import type { MetadataProvider, ProviderName, ReleaseCandidate, ReleaseDetail, SearchOptions } from "./types";
+import type {
+  MetadataProvider,
+  ProviderName,
+  ReleaseCandidate,
+  ReleaseDetail,
+  SearchOptions,
+} from "./types";
 
 export type SearchMode = "text" | "barcode" | "catno";
 
@@ -19,14 +25,22 @@ export async function providersFor(userId: string): Promise<MetadataProvider[]> 
   return [...(token ? [createDiscogsProvider(token)] : []), createMusicBrainzProvider()];
 }
 
-export async function providerByName(userId: string, name: ProviderName): Promise<MetadataProvider> {
+export async function providerByName(
+  userId: string,
+  name: ProviderName,
+): Promise<MetadataProvider> {
   if (name === "musicbrainz") return createMusicBrainzProvider();
   const token = await resolveDiscogsToken(userId);
   if (!token) throw new ProviderError("discogs", "no Discogs token configured");
   return createDiscogsProvider(token);
 }
 
-async function cached<T>(provider: string, key: string, ttl: number, fn: () => Promise<T>): Promise<T> {
+async function cached<T>(
+  provider: string,
+  key: string,
+  ttl: number,
+  fn: () => Promise<T>,
+): Promise<T> {
   const hit = await getCached<T>(provider, key, ttl);
   if (hit !== null) return hit;
   const value = await fn();
@@ -48,7 +62,11 @@ export async function searchCatalog(
 ): Promise<SearchResult> {
   const providers = await providersFor(userId);
   const norm =
-    mode === "barcode" ? normalizeBarcode(query) : mode === "catno" ? normalizeCatalogNumber(query) : searchKey(query);
+    mode === "barcode"
+      ? normalizeBarcode(query)
+      : mode === "catno"
+        ? normalizeCatalogNumber(query)
+        : searchKey(query);
   const settled = await Promise.allSettled(
     providers.map((p) =>
       cached(p.name, `search:${mode}:${norm}:${opts.format ?? ""}`, SEARCH_TTL, () =>
