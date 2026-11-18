@@ -151,4 +151,4 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 ## Parking lot
 _Ideas not yet assigned to a phase._
 
--
+- Adopt TypeScript 7 (native compiler) once typescript-eslint supports it ([typescript-eslint#10940](https://github.com/typescript-eslint/typescript-eslint/issues/10940)); remove the Dependabot ignore rule then. TS 7 already passes typecheck and `next build` here, about 3× faster.

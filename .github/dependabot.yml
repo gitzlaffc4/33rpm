@@ -13,6 +13,16 @@ updates:
       npm-minor-patch:
         patterns: ["*"]
         update-types: [minor, patch]
+    ignore:
+      # TypeScript 7 (native compiler) has no JS API, so typescript-eslint can't run on
+      # it yet: https://github.com/typescript-eslint/typescript-eslint/issues/10940
+      # Remove this rule once typescript-eslint supports TS 7 (tracked in ROADMAP.md).
+      - dependency-name: typescript
+        versions: [">=7.0.0"]
+      # @types/node must match the Node major we run (.nvmrc / Dockerfile), not the
+      # newest Node. Bump it together with the runtime.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
@@ -32,3 +42,8 @@ updates:
       day: monday
     commit-message:
       prefix: deps
+    ignore:
+      # Track the base image digest within the current LTS major only. Moving to the
+      # next even-numbered LTS is a deliberate change (.nvmrc, @types/node, Dockerfile).
+      - dependency-name: node
+        update-types: [version-update:semver-major]
