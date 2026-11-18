@@ -187,4 +187,35 @@ test.describe("signed in", () => {
     await page.goto("/library?view=formats");
     await expect(page.getByRole("link", { name: /Cassette/ })).toBeVisible();
   });
+
+  test("wishlist: want any edition, then Got it adds a copy", async ({ page }, info) => {
+    const title = `Basement Tapes (${info.project.name})`;
+    await page.goto(`/library?q=${encodeURIComponent(title)}`);
+    await page
+      .getByRole("link", { name: new RegExp(title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) })
+      .first()
+      .click();
+    await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+    await page.getByRole("button", { name: "Want any edition" }).filter({ visible: true }).click();
+    await expect(page.getByText("Added to your wishlist.").filter({ visible: true })).toBeVisible();
+
+    await page.goto("/wishlist");
+    const row = page.getByRole("listitem").filter({ hasText: title }).filter({ visible: true });
+    await expect(row.getByText("Any edition")).toBeVisible();
+    await row.getByRole("link", { name: "Got it" }).click();
+    await expect(page.getByRole("heading", { name: `Which ${title} did you get?` })).toBeVisible();
+    await page
+      .getByRole("link", { name: /Cassette/ })
+      .filter({ visible: true })
+      .first()
+      .click();
+    await page.getByRole("button", { name: "Add copy" }).filter({ visible: true }).click();
+    await expect(
+      page.getByText("Added to your collection.").filter({ visible: true }),
+    ).toBeVisible();
+
+    await page.goto("/wishlist?status=acquired");
+    await expect(page.getByText(title).filter({ visible: true }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "View copy" }).first()).toBeVisible();
+  });
 });

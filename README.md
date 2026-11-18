@@ -103,6 +103,21 @@ the server, so nothing private is cached on the device).
 > disabled and you can type barcodes instead. Put 33rpm behind a reverse proxy with a
 > certificate (see [Reverse proxy & HTTPS](#reverse-proxy--https)).
 
+## Wishlist
+
+Mark anything as wanted: **Want this pressing** (one exact release) or **Want any edition**
+(the album) from a release page, an album page, or an in-store check. Each item has a priority,
+an optional max price, notes, tags and a status (wanted → ordered → acquired). The wishlist can
+be viewed by priority, artist or format.
+
+When you find it, tap **Got it**: for a specific pressing you go straight to the copy form; for
+"any edition" you first pick which pressing you got (from the catalog, a search, a scan, or manual
+entry). The new copy is linked to the wishlist item, which moves to **Acquired**.
+
+**In-store check** (Scan → In-store check): scan anything on a shelf and 33rpm answers instantly
+with *You own this*, *On your wishlist*, *You own another edition* or *Not in your collection*,
+with one-tap buttons to want it or add it.
+
 ## Configuration
 
 All configuration is via environment variables (see [`.env.example`](.env.example)). Invalid

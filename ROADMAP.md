@@ -80,12 +80,12 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 ## Phase 3 — Wishlist
 **Goal:** Track what I'm hunting and move it into the collection when I find it.
 
-- [ ] Wishlist targets a Master ("any edition") or a specific Release
-- [ ] Add to wishlist from search results, album pages, and scan results ("don't own → want")
-- [ ] Priority, max price, notes, status (wanted / ordered / acquired)
-- [ ] One-tap "Got it" → creates Copy (prompts for exact release if wishlist item was a Master)
-- [ ] Wishlist views: by priority, by artist, by format
-- [ ] In-store check: scanning an item tells me "already own it" / "on your wishlist" / "new"
+- [x] Wishlist targets a Master ("any edition") or a specific Release
+- [x] Add to wishlist from search results, album pages, and scan results ("don't own → want")
+- [x] Priority, max price, notes, status (wanted / ordered / acquired)
+- [x] One-tap "Got it" → creates Copy (prompts for exact release if wishlist item was a Master)
+- [x] Wishlist views: by priority, by artist, by format
+- [x] In-store check: scanning an item tells me "already own it" / "on your wishlist" / "new"
 
 ✅ In a record store, I scan a barcode and instantly know whether I own it or want it.
 
