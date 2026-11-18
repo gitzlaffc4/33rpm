@@ -19,6 +19,7 @@ jobs:
   check:
     name: Lint, typecheck, unit tests
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,6 +47,7 @@ jobs:
     name: Commit messages
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -62,9 +64,54 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: npx commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
 
+  # Decides what the heavier jobs need: the Playwright version (for the container
+  # tag) and whether the PR touches anything beyond docs.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+      playwright: ${{ steps.pw.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Playwright version (exact pin from package.json)
+        id: pw
+        run: echo "version=$(node -p "require('./package.json').devDependencies['@playwright/test']")" >> "$GITHUB_OUTPUT"
+      - name: Code or docs-only?
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then echo "code=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          files="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
+          echo "$files"
+          # Docs and repo metadata can't change the app or the image.
+          docs='^(docs/|LICENSE$|.*\.md$|\.github/(ISSUE_TEMPLATE/|pull_request_template\.md$|CODEOWNERS$|dependabot\.yml$))'
+          if [ -n "$files" ] && ! grep -Eqv "$docs" <<< "$files"; then
+            echo "Docs-only change: skipping build-heavy jobs."
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          fi
+
   e2e:
     name: Playwright smoke test
+    needs: changes
+    # A job skipped by its condition reports success, so required checks still pass.
+    if: ${{ needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # Official Playwright image: browsers and their system libraries are preinstalled,
+    # which replaces a slow apt-get step. The tag follows package.json, so a Dependabot
+    # bump of @playwright/test moves the image with it.
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.changes.outputs.playwright }}-noble
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -74,23 +121,6 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-
-      - name: Resolve Playwright version
-        id: pw
-        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
-      - name: Cache Playwright browsers
-        id: pw-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.pw.outputs.version }}
-      - name: Install Playwright Chromium
-        if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-      - name: Install Playwright system deps (browser restored from cache)
-        if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-
       - run: npm run build
       - run: npm run test:e2e
 
@@ -105,9 +135,13 @@ jobs:
             e2e/.server.log
           retention-days: 7
 
+  # PRs only: on main the Release workflow builds and scans both architectures.
   docker:
     name: Docker build + Trivy (amd64)
+    needs: changes
+    if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
       contents: read
       security-events: write
