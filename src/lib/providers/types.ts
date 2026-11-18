@@ -84,5 +84,8 @@ export interface MetadataProvider {
 }
 
 export function artistDisplay(credits: ArtistCredit[]): string {
-  return credits.map((c, i) => c.name + (i < credits.length - 1 ? c.joinPhrase || ", " : "")).join("").trim();
+  return credits
+    .map((c, i) => c.name + (i < credits.length - 1 ? c.joinPhrase || ", " : ""))
+    .join("")
+    .trim();
 }

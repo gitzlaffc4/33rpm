@@ -1057,3 +1057,22 @@ export async function getImage(id: string, h: DbHandle = getDb()) {
     .where(eq(h.t.image.id, id));
   return img ?? null;
 }
+
+/** Provider ids for a release ("Refresh metadata"). */
+export async function getReleaseRef(releaseId: string, h: DbHandle = getDb()) {
+  const [r] = await h.db
+    .select({
+      id: h.t.release.id,
+      masterId: h.t.release.masterId,
+      dataSource: h.t.release.dataSource,
+      discogsReleaseId: h.t.release.discogsReleaseId,
+      musicbrainzReleaseId: h.t.release.musicbrainzReleaseId,
+    })
+    .from(h.t.release)
+    .where(eq(h.t.release.id, releaseId));
+  return r ?? null;
+}
+
+export async function masterExists(masterId: string, h: DbHandle = getDb()) {
+  return (await h.db.$count(h.t.master, eq(h.t.master.id, masterId))) > 0;
+}

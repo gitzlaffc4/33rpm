@@ -118,4 +118,68 @@ test.describe("signed in", () => {
     await expect(page).toHaveURL(/\/login\?next=%2Fsettings$/);
     await ctx.close();
   });
+
+  test("manual entry, another copy, edit with photo, library views", async ({ page }, info) => {
+    // Next keeps previously visited routes mounted (hidden) for back/forward, so
+    // scope every lookup to visible elements.
+    const field = (label: string) =>
+      page.getByLabel(label, { exact: true }).filter({ visible: true });
+    const text = (t: string) => page.getByText(t).filter({ visible: true }).first();
+    const title = `Basement Tapes (${info.project.name})`;
+    await page.goto("/add/manual");
+    await field("Artist").fill("The Test Pressings");
+    await field("Title").fill(title);
+    await field("Format").selectOption("cassette");
+    await field("Year").fill("1999");
+    await field("Barcode").fill("0 12345 67890 5");
+    await field("Tracklist").fill("A1 Side One 3:01\nB1 Side Two 4:20");
+    await field("Media").selectOption("VG+");
+    await field("Price").fill("12.50");
+    await field("Location").selectOption("__new__");
+    await field("New location name").fill(`Crate ${info.project.name}`);
+    await field("Tags").fill("demo, rare");
+    await page.getByRole("button", { name: "Add to collection" }).click();
+
+    await expect(page).toHaveURL(/\/album\/[^/?]+\?added=/);
+    await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+    await expect(text("Added to your collection.")).toBeVisible();
+    await expect(text("Side Two")).toBeVisible();
+    await expect(text(`Crate ${info.project.name}`)).toBeVisible();
+    await expect(text("$12.50")).toBeVisible();
+
+    await page.getByRole("link", { name: "Add another copy" }).click();
+    await page.getByRole("button", { name: "Add copy" }).click();
+    await expect(text("2 copies on your shelves")).toBeVisible();
+
+    await page.getByRole("link", { name: "Edit copy 1" }).click();
+    await expect(page.getByRole("heading", { name: "Edit copy" })).toBeVisible();
+    await expect(field("Tags")).toHaveValue("demo, rare");
+    await field("Notes").fill("Slight shelf wear");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(text("Saved.")).toBeVisible();
+
+    // 1×1 PNG
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    await page
+      .getByLabel("Add a photo")
+      .setInputFiles({ name: "p.png", mimeType: "image/png", buffer: png });
+    await expect(text("Photo added.")).toBeVisible();
+    await expect(page.getByRole("img", { name: "Photo 1" })).toBeVisible();
+
+    await page.goto(`/library?q=${encodeURIComponent("basement tapes")}`);
+    await expect(
+      page.getByRole("link", { name: new RegExp(title.replace(/[()]/g, "\\$&")) }),
+    ).toBeVisible();
+    await page.goto("/library?view=locations");
+    await expect(
+      page.getByRole("link", { name: new RegExp(`Crate ${info.project.name}`) }),
+    ).toBeVisible();
+    await page.goto("/library?view=recent");
+    await expect(text(title)).toBeVisible();
+    await page.goto("/library?view=formats");
+    await expect(page.getByRole("link", { name: /Cassette/ })).toBeVisible();
+  });
 });

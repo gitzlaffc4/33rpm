@@ -15,3 +15,4 @@ docs
 e2e/.server.log
 e2e/.auth.json
 dist
+tests/fixtures/

@@ -24,5 +24,6 @@ export default defineConfig([
     "playwright-report/**",
     "test-results/**",
     ".e2e/**",
+    "dist/**",
   ]),
 ]);

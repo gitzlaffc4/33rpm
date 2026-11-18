@@ -42,7 +42,12 @@ const SearchSchema = z.object({
 });
 
 const ArtistsSchema = z.array(
-  z.object({ id: z.number(), name: z.string(), anv: z.string().nullish(), join: z.string().nullish() }),
+  z.object({
+    id: z.number(),
+    name: z.string(),
+    anv: z.string().nullish(),
+    join: z.string().nullish(),
+  }),
 );
 
 const ReleaseSchema = z.object({
@@ -160,7 +165,11 @@ export function mapDiscogsRelease(r: DiscogsRelease, master?: MasterDetail): Rel
     : "Unknown";
   const tracklist: Track[] = (r.tracklist ?? [])
     .filter((t) => (t.type_ ?? "track") === "track")
-    .map((t) => ({ position: t.position ?? "", title: t.title, duration: t.duration || undefined }));
+    .map((t) => ({
+      position: t.position ?? "",
+      title: t.title,
+      duration: t.duration || undefined,
+    }));
   const cover = r.images?.find((i) => i.type === "primary") ?? r.images?.[0];
   const label = r.labels?.[0];
   return {
@@ -232,13 +241,20 @@ export function createDiscogsProvider(token: string): MetadataProvider {
     searchByBarcode: (code) => search({ barcode: code.replace(/\D/g, "") }),
     searchByCatalogNumber: (catno) => search({ catno: catno.trim() }),
     searchByText: (query: string, opts?: SearchOptions) => {
-      const formatParam = { vinyl: "Vinyl", cd: "CD", cassette: "Cassette", other: "" }[opts?.format ?? "other"];
-      return search({ q: query.trim(), ...(opts?.format && formatParam ? { format: formatParam } : {}) });
+      const formatParam = { vinyl: "Vinyl", cd: "CD", cassette: "Cassette", other: "" }[
+        opts?.format ?? "other"
+      ];
+      return search({
+        q: query.trim(),
+        ...(opts?.format && formatParam ? { format: formatParam } : {}),
+      });
     },
     async getRelease(id: string) {
       const r = await get(`/releases/${encodeURIComponent(id)}`, ReleaseSchema);
       // The master carries canonical title/year/genres; one extra (cached) call.
-      const master = r.master_id ? await getMaster(String(r.master_id)).catch(() => undefined) : undefined;
+      const master = r.master_id
+        ? await getMaster(String(r.master_id)).catch(() => undefined)
+        : undefined;
       return mapDiscogsRelease(r, master);
     },
     getMaster,

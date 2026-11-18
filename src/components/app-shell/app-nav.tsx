@@ -12,7 +12,11 @@ function isActive(pathname: string, href: string) {
 
 /** Vertical nav for the desktop sidebar. */
 export function SidebarNav() {
-  const pathname = usePathname();
+  return <SidebarNavList pathname={usePathname()} />;
+}
+
+/** Static variant (no active item): the Suspense fallback while the URL is unknown. */
+export function SidebarNavList({ pathname }: { pathname: string }) {
   return (
     <nav aria-label="Main" className="flex flex-col gap-1">
       {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
@@ -38,7 +42,10 @@ export function SidebarNav() {
 
 /** Bottom tab bar for phones. */
 export function MobileTabBar() {
-  const pathname = usePathname();
+  return <MobileTabBarList pathname={usePathname()} />;
+}
+
+export function MobileTabBarList({ pathname }: { pathname: string }) {
   return (
     <nav
       aria-label="Main"

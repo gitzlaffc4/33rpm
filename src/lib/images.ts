@@ -85,7 +85,7 @@ export async function downloadCover(url: string | null): Promise<StoredImage | n
   if (!url || !isAllowedImageUrl(url)) return null;
   try {
     const provider = new URL(url).hostname === "i.discogs.com" ? "discogs" : "coverart";
-    const { bytes } = await fetchBytes(url, { provider });
+    const { bytes } = await fetchBytes(url, { provider, allowUrl: isAllowedImageUrl });
     return await storeImage(bytes, { kind: "cover", sourceUrl: url });
   } catch (e) {
     console.warn(`[33rpm] cover download failed (${url}): ${(e as Error).message}`);
@@ -112,7 +112,11 @@ export async function remoteThumbnail(url: string): Promise<Buffer | null> {
   await fs.mkdir(path.dirname(file), { recursive: true });
   try {
     const provider = new URL(url).hostname === "i.discogs.com" ? "discogs" : "coverart";
-    const { bytes } = await fetchBytes(url, { provider, maxBytes: 10 * 1024 * 1024 });
+    const { bytes } = await fetchBytes(url, {
+      provider,
+      maxBytes: 10 * 1024 * 1024,
+      allowUrl: isAllowedImageUrl,
+    });
     const out = await sharp(bytes)
       .rotate()
       .resize(300, 300, { fit: "inside" })
