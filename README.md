@@ -170,7 +170,7 @@ Nightly snapshots and restore tooling are planned for Phase 4.
 
 ## Development
 
-Requires Node.js 24 (see `.nvmrc`; 22.12+ works).
+Requires Node.js 26 LTS (see `.nvmrc`).
 
 ```bash
 npm ci
