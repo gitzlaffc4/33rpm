@@ -32,8 +32,12 @@ jobs:
       # fail early and clearly if this platform has none.
       - name: Verify better-sqlite3 native binding
         run: node -e "const D=require('better-sqlite3'); console.log('SQLite', new D(':memory:').prepare('select sqlite_version() v').get().v)"
+      # Audit only dependencies that can ship. Optional and peer-only packages are
+      # excluded: e.g. better-auth lists vitest as an optional peer, which drags the
+      # whole vitest/vite chain into a plain --omit=dev audit even though none of it
+      # is in the standalone build. The Trivy scan covers what the image really contains.
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        run: npm audit --omit=dev --omit=optional --omit=peer --audit-level=high
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
