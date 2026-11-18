@@ -1,5 +1,6 @@
 "use client";
 
+import { useSuccessToast } from "@/components/toaster";
 import { Camera } from "lucide-react";
 import { useActionState, useRef } from "react";
 
@@ -14,6 +15,7 @@ export function PhotoUpload({
   action: (prev: FormState, fd: FormData) => Promise<FormState>;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
+  useSuccessToast(state);
   const form = useRef<HTMLFormElement>(null);
   const input = useRef<HTMLInputElement>(null);
   return (

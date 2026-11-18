@@ -1,5 +1,6 @@
 "use client";
 
+import { useSuccessToast } from "@/components/toaster";
 import { Heart } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
@@ -20,12 +21,13 @@ export function WantButtons({
 }) {
   const [pending, start] = useTransition();
   const [state, setState] = useState<WishState>({});
+  useSuccessToast(state);
   const id = state.id ?? wished?.id;
   if (id) {
     return (
       <p className="flex items-center gap-2 text-sm">
         <Heart className="size-4 fill-primary text-primary" aria-hidden />
-        <span>{state.ok ?? "On your wishlist"}</span>
+        <span>On your wishlist</span>
         <Link href={`/wishlist/${id}`} className="text-primary underline-offset-2 hover:underline">
           Edit
         </Link>
