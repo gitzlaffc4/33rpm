@@ -9,11 +9,20 @@
  * (so the database is migrated).
  */
 import { randomBytes } from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { createInterface } from "node:readline";
 
 import { hashPassword } from "better-auth/crypto";
 
 import { getDb } from "@/db";
+import { openDatabase } from "@/db/client";
+import { copyInto } from "@/db/copy";
+import { exportJson, jsonSource } from "@/db/copy/json";
+import { importLibrary } from "@/db/copy/library-import";
+import { parseDatabaseUrl } from "@/db/dialect";
+import { migrateDatabase } from "@/db/migrate";
 import { countUsers, deleteSessionsForUser, findUserByEmail, setPassword } from "@/db/repos/users";
 import { EnvError, getEnv } from "@/env";
 import { formatSetupBanner, issueSetupCodeIfNeeded } from "@/lib/setup-code";
@@ -28,6 +37,17 @@ Usage:
 
   33rpm create-setup-code
       Print a fresh first-run setup code. Only works while no users exist.
+
+  33rpm db:copy --from <url> --to <url> [--dry-run]
+      Copy a whole library between databases (SQLite <-> PostgreSQL), preserving ids.
+      The target must be empty; it is migrated first. The source is opened read-only.
+      --dry-run reports row counts and schema compatibility without writing.
+
+  33rpm export-json <file>
+      Write every table to a JSON file (a portable full backup).
+
+  33rpm import-json <file>
+      Load a JSON backup into this (empty) database.
 
   33rpm help
 
@@ -109,6 +129,67 @@ async function createSetupCode() {
   console.log("Any previously printed code is now invalid.");
 }
 
+function flag(args: string[], name: string) {
+  const i = args.indexOf(name);
+  return i >= 0 ? args[i + 1] : undefined;
+}
+
+const MIGRATIONS_ROOT = path.join(process.cwd(), "drizzle");
+
+async function dbCopy(args: string[]) {
+  const from = flag(args, "--from");
+  const to = flag(args, "--to");
+  if (!from || !to) throw new CliError("Usage: 33rpm db:copy --from <url> --to <url> [--dry-run]");
+  const dryRun = args.includes("--dry-run");
+  const target = openDatabase(parseDatabaseUrl(to));
+  try {
+    if (!dryRun)
+      await migrateDatabase(target, {
+        migrationsRoot: MIGRATIONS_ROOT,
+        backupsDir: path.join(os.tmpdir(), "33rpm-cli"),
+      });
+    const { info, result } = await importLibrary({
+      sourceUrl: from,
+      target,
+      migrationsRoot: MIGRATIONS_ROOT,
+      backupsDir: null,
+      dryRun,
+      log: (line) => console.log(line),
+    });
+    if (dryRun) {
+      console.log(
+        info.compatibility === "ok" || info.compatibility === "older-sqlite"
+          ? `Dry run OK: schema ${info.sourceVersion} → ${info.targetVersion}. Nothing was written.`
+          : `Incompatible schema (${info.compatibility}).`,
+      );
+      if (info.compatibility === "older-pg" || info.compatibility === "newer")
+        throw new CliError("Schema mismatch");
+    } else {
+      console.log(`Copied in ${result!.durationMs} ms; row counts verified.`);
+    }
+  } finally {
+    await target.close();
+  }
+}
+
+async function exportJsonCmd(args: string[]) {
+  const file = args.find((a) => !a.startsWith("--"));
+  if (!file) throw new CliError("Usage: 33rpm export-json <file>");
+  const out = fs.createWriteStream(file);
+  for await (const chunk of exportJson(getDb())) out.write(chunk);
+  await new Promise<void>((resolve, reject) =>
+    out.end((e?: Error | null) => (e ? reject(e) : resolve())),
+  );
+  console.log(`Wrote ${file}`);
+}
+
+async function importJsonCmd(args: string[]) {
+  const file = args.find((a) => !a.startsWith("--"));
+  if (!file) throw new CliError("Usage: 33rpm import-json <file>");
+  const report = await copyInto(jsonSource(JSON.parse(fs.readFileSync(file, "utf8"))), getDb());
+  console.log(`Imported ${file} in ${report.durationMs} ms; row counts verified.`);
+}
+
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv.filter((a) => a !== "--allow-root");
   if (!command || command === "help" || command === "--help" || command === "-h") {
@@ -121,6 +202,12 @@ async function main(argv: string[]): Promise<number> {
     throw new CliError(
       "Refusing to run as root. In Docker use the `33rpm` wrapper (it switches to PUID), or pass --allow-root.",
     );
+  }
+
+  // db:copy names both databases explicitly; it doesn't need the app's environment.
+  if (command === "db:copy") {
+    await dbCopy(rest);
+    return 0;
   }
 
   try {
@@ -137,6 +224,15 @@ async function main(argv: string[]): Promise<number> {
         return 0;
       case "create-setup-code":
         await createSetupCode();
+        return 0;
+      case "db:copy":
+        await dbCopy(rest);
+        return 0;
+      case "export-json":
+        await exportJsonCmd(rest);
+        return 0;
+      case "import-json":
+        await importJsonCmd(rest);
         return 0;
       default:
         throw new CliError(`Unknown command: ${command}\n\n${HELP}`);
