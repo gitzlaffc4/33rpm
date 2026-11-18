@@ -135,18 +135,20 @@ skip `release.yml` for tags created by the App.
 
 ## Automated checks
 
-| Check                 | When                                           | What fails it                                                |
-| --------------------- | ---------------------------------------------- | ------------------------------------------------------------ |
-| Lint, typecheck, unit | PRs, `main`                                    | Any error                                                    |
-| Playwright smoke test | PRs†, `main`†                                  | Any failure                                                  |
-| `npm audit`           | PRs, `main`                                    | High/critical advisory in shippable production dependencies* |
-| commitlint            | PRs                                            | Non-conventional commit                                      |
-| PR title              | PRs                                            | Non-conventional title                                       |
-| Docker build + Trivy  | PRs†; releases and `edge` (both architectures) | CRITICAL vulnerability with a fix available                  |
-| CodeQL                | PRs, `main`, weekly                            | New code-scanning alerts (configurable in settings)          |
-| Dependency review     | PRs                                            | High+ vulnerability, or a license outside the allowlist      |
-| gitleaks              | PRs                                            | Secrets in the diff                                          |
-| OpenSSF Scorecard     | weekly, `main`                                 | Informational only                                           |
+| Check                  | When                                           | What fails it                                                |
+| ---------------------- | ---------------------------------------------- | ------------------------------------------------------------ |
+| Lint, typecheck, unit  | PRs, `main`                                    | Any error (also checks the CLI bundles)                      |
+| Integration (sqlite)   | PRs, `main`                                    | Repo/migration/transaction tests fail on SQLite              |
+| Integration (postgres) | PRs, `main`                                    | Same tests fail on PostgreSQL 17                             |
+| Playwright smoke test  | PRs†, `main`†                                  | Any failure                                                  |
+| `npm audit`            | PRs, `main`                                    | High/critical advisory in shippable production dependencies* |
+| commitlint             | PRs                                            | Non-conventional commit                                      |
+| PR title               | PRs                                            | Non-conventional title                                       |
+| Docker build + Trivy   | PRs†; releases and `edge` (both architectures) | CRITICAL vulnerability with a fix available                  |
+| CodeQL                 | PRs, `main`, weekly                            | New code-scanning alerts (configurable in settings)          |
+| Dependency review      | PRs                                            | High+ vulnerability, or a license outside the allowlist      |
+| gitleaks               | PRs                                            | Secrets in the diff                                          |
+| OpenSSF Scorecard      | weekly, `main`                                 | Informational only                                           |
 
 † Skipped when a PR only changes docs or repo metadata (`*.md`, `docs/`, issue/PR templates,
 `CODEOWNERS`, `dependabot.yml`); a skipped job still satisfies the required check. The Playwright job

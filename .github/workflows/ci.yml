@@ -41,7 +41,46 @@ jobs:
         run: npm audit --omit=dev --omit=optional --omit=peer --audit-level=high
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      - run: npm run test:unit
+      - name: CLI bundles
+        run: npm run build:cli
+
+  # Repos, migrations and transactions on both backends (docs/addendum-01-postgres-support.md).
+  integration:
+    name: Integration (${{ matrix.db }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [sqlite, postgres]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Integration tests
+        env:
+          TEST_DATABASE_URL: ${{ matrix.db == 'postgres' && 'postgres://test:test@localhost:5432/test' || '' }}
+        run: npm run test:integration
 
   commitlint:
     name: Commit messages
