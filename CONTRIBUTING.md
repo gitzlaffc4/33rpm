@@ -132,18 +132,22 @@ skip `release.yml` for tags created by the App.
 
 ## Automated checks
 
-| Check                 | When                  | What fails it                                           |
-| --------------------- | --------------------- | ------------------------------------------------------- |
-| Lint, typecheck, unit | PRs, `main`           | Any error                                               |
-| Playwright smoke test | PRs, `main`           | Any failure                                             |
-| `npm audit`           | PRs, `main`           | High/critical advisory in production dependencies       |
-| commitlint            | PRs                   | Non-conventional commit                                 |
-| PR title              | PRs                   | Non-conventional title                                  |
-| Docker build + Trivy  | PRs, `main`, releases | CRITICAL vulnerability with a fix available             |
-| CodeQL                | PRs, `main`, weekly   | New code-scanning alerts (configurable in settings)     |
-| Dependency review     | PRs                   | High+ vulnerability, or a license outside the allowlist |
-| gitleaks              | PRs                   | Secrets in the diff                                     |
-| OpenSSF Scorecard     | weekly, `main`        | Informational only                                      |
+| Check                 | When                  | What fails it                                                |
+| --------------------- | --------------------- | ------------------------------------------------------------ |
+| Lint, typecheck, unit | PRs, `main`           | Any error                                                    |
+| Playwright smoke test | PRs, `main`           | Any failure                                                  |
+| `npm audit`           | PRs, `main`           | High/critical advisory in shippable production dependencies* |
+| commitlint            | PRs                   | Non-conventional commit                                      |
+| PR title              | PRs                   | Non-conventional title                                       |
+| Docker build + Trivy  | PRs, `main`, releases | CRITICAL vulnerability with a fix available                  |
+| CodeQL                | PRs, `main`, weekly   | New code-scanning alerts (configurable in settings)          |
+| Dependency review     | PRs                   | High+ vulnerability, or a license outside the allowlist      |
+| gitleaks              | PRs                   | Secrets in the diff                                          |
+| OpenSSF Scorecard     | weekly, `main`        | Informational only                                           |
+
+\* `npm audit --omit=dev --omit=optional --omit=peer`: optional and peer-only packages (e.g. test
+tooling a library lists as an optional peer) never reach the standalone build; Trivy scans what the
+image actually contains.
 
 Dependabot opens grouped weekly PRs: npm minor/patch together, each npm major separately, GitHub
 Actions (pinned to full commit SHAs), and the Docker base image digest.
