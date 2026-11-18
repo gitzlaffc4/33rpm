@@ -9,6 +9,7 @@ import { createUserWithPassword } from "@/db/repos/users";
 import { withTransaction } from "@/db/tx";
 import { getEnv } from "@/env";
 import { getAuth } from "@/lib/auth";
+import { normalizeEmail } from "@/lib/email";
 import {
   consumeSetupCode,
   formatSetupBanner,
@@ -22,7 +23,9 @@ const SetupInput = z
   .object({
     setupCode: z.string().trim().min(1, "Enter the setup code from the server logs"),
     name: z.string().trim().min(1, "Required").max(100),
-    email: z.email("Enter a valid email").trim().toLowerCase(),
+    // Normalize first (Zod 4 runs .trim() after the format check, and autofill can add
+    // non-breaking or zero-width spaces), then validate.
+    email: z.string().transform(normalizeEmail).pipe(z.email("Enter a valid email")),
     password: z.string().min(10, "At least 10 characters").max(256),
     confirmPassword: z.string(),
   })

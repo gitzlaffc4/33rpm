@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { normalizeEmail } from "@/lib/email";
 import { authClient } from "@/lib/auth-client";
 
 export function LoginForm({
@@ -32,7 +33,7 @@ export function LoginForm({
     setError(null);
     startTransition(async () => {
       const { error } = await authClient.signIn.email({
-        email: String(formData.get("email") ?? ""),
+        email: normalizeEmail(formData.get("email")),
         password: String(formData.get("password") ?? ""),
       });
       if (error) {
