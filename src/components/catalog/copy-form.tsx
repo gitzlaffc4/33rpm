@@ -31,6 +31,8 @@ type Props = {
   defaultCurrency: string;
   initial?: Partial<CopyFormValues>;
   submitLabel: string;
+  /** Hidden fields to submit with the form (e.g. the wishlist item being fulfilled). */
+  hidden?: Record<string, string | undefined>;
   /** Render extra fields (manual entry) inside the same <form>. */
   children?: React.ReactNode;
 };
@@ -70,6 +72,7 @@ export function CopyForm({
   defaultCurrency,
   initial = {},
   submitLabel,
+  hidden = {},
   children,
 }: Props) {
   const [state, formAction, pending] = useActionState(action, {});
@@ -78,6 +81,9 @@ export function CopyForm({
 
   return (
     <form action={formAction} className="space-y-6" aria-describedby="copy-form-status">
+      {Object.entries(hidden).map(([k, v]) =>
+        v ? <input key={k} type="hidden" name={k} value={v} /> : null,
+      )}
       {children}
       <fieldset className="space-y-4">
         <legend className="mb-2 text-sm font-medium text-muted-foreground">

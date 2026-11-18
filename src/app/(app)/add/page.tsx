@@ -22,7 +22,7 @@ import { requireUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Add" };
 
-type Params = { q?: string; mode?: string; format?: string };
+type Params = { q?: string; mode?: string; format?: string; wish?: string };
 
 function one(v: string | string[] | undefined) {
   return Array.isArray(v) ? v[0] : v;
@@ -47,12 +47,13 @@ export default function AddPage({ searchParams }: PageProps<"/add">) {
 
 async function SearchFormFromParams({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
   const p = await searchParams;
-  return <SearchForm q={one(p.q)} mode={one(p.mode)} format={one(p.format)} />;
+  return <SearchForm q={one(p.q)} mode={one(p.mode)} format={one(p.format)} wish={one(p.wish)} />;
 }
 
-function SearchForm({ q = "", mode = "auto", format = "" }: Params) {
+function SearchForm({ q = "", mode = "auto", format = "", wish }: Params) {
   return (
     <form action="/add" role="search" className="space-y-3">
+      {wish && <input type="hidden" name="wish" value={wish} />}
       <div className="flex gap-2">
         <Label htmlFor="q" className="sr-only">
           Search
@@ -188,7 +189,7 @@ async function Results({ searchParams }: Pick<PageProps<"/add">, "searchParams">
         <ul className="divide-y rounded-lg border">
           {filtered.map((r) => (
             <li key={`${r.provider}:${r.providerReleaseId}`}>
-              <CandidateRow r={r} own={owned.get(r.provider)} />
+              <CandidateRow r={r} own={owned.get(r.provider)} wish={one(p.wish)} />
             </li>
           ))}
         </ul>
@@ -201,9 +202,11 @@ async function Results({ searchParams }: Pick<PageProps<"/add">, "searchParams">
 function CandidateRow({
   r,
   own,
+  wish,
 }: {
   r: ReleaseCandidate;
   own?: Awaited<ReturnType<typeof ownershipFor>>;
+  wish?: string;
 }) {
   const ownedCopies = own?.releases.get(r.providerReleaseId) ?? 0;
   const albumOwned =
@@ -211,7 +214,7 @@ function CandidateRow({
   const meta = [r.label, r.catalogNumber, r.country, r.year].filter(Boolean).join(" · ");
   return (
     <Link
-      href={`/add/${r.provider}/${encodeURIComponent(r.providerReleaseId)}`}
+      href={`/add/${r.provider}/${encodeURIComponent(r.providerReleaseId)}${wish ? `?wish=${encodeURIComponent(wish)}` : ""}`}
       className="flex gap-3 p-3 outline-none hover:bg-accent/50 focus-visible:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:gap-4"
     >
       <Cover remoteUrl={r.thumbUrl} alt="" className="size-16 shrink-0 sm:size-20" />

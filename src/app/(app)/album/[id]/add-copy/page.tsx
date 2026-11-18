@@ -29,6 +29,7 @@ async function AddCopy({ params, searchParams }: PageProps<"/album/[id]/add-copy
   const { id } = await params;
   const sp = await searchParams;
   const releaseId = typeof sp.release === "string" ? sp.release : "";
+  const wishId = typeof sp.wish === "string" ? sp.wish : undefined;
   const release = releaseId ? await getReleaseSummary(releaseId) : null;
   if (!release || release.masterId !== id) notFound();
   const [locations, settings] = await Promise.all([
@@ -56,6 +57,7 @@ async function AddCopy({ params, searchParams }: PageProps<"/album/[id]/add-copy
           locations={locations}
           defaultCurrency={settings.defaultCurrency}
           submitLabel="Add copy"
+          hidden={{ wishId }}
         />
       </section>
     </div>

@@ -5,6 +5,20 @@ test.use({ storageState: "e2e/.auth.json" });
 
 test.setTimeout(60_000);
 
+test("in-store check: a scanned barcode I own says so", async ({ page }) => {
+  await page.goto("/scan?mode=check");
+  await page.getByRole("button", { name: "Start camera" }).click();
+  await expect(page.getByRole("article", { name: /You own this/ })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.getByRole("button", { name: "Stop camera" }).click();
+  await page.getByLabel("Type a barcode").fill("9780000000002");
+  await page.getByRole("button", { name: "Check", exact: true }).click();
+  await expect(page.getByText(/Barcode not found|Not in your collection/).first()).toBeVisible({
+    timeout: 20_000,
+  });
+});
+
 test("crate mode: scan with the camera, review and add", async ({ page }) => {
   await page.goto("/scan?mode=crate");
   await expect(page.getByRole("heading", { name: "Scan", level: 1 })).toBeVisible();

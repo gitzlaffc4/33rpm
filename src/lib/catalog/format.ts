@@ -69,3 +69,5 @@ export function priceInputValue(minor: number | null, currency: string | null): 
   const digits = currencyDigits(currency ?? "USD");
   return (minor / 10 ** digits).toFixed(digits);
 }
+
+export const PRIORITY_LABEL: Record<number, string> = { 1: "High", 2: "Medium", 3: "Low" };

@@ -269,6 +269,8 @@ export const wishlistItem = sqliteTable(
     currency: text("currency"),
     notes: text("notes"),
     status: text("status", { enum: WISHLIST_STATUSES }).notNull().default("wanted"),
+    /** The copy that fulfilled this item ("Got it"). */
+    acquiredCopyId: text("acquired_copy_id").references(() => copy.id, { onDelete: "set null" }),
     ...timestamps,
   },
   (t) => [

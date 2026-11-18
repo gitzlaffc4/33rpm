@@ -1077,3 +1077,39 @@ export async function getReleaseRef(releaseId: string, h: DbHandle = getDb()) {
 export async function masterExists(masterId: string, h: DbHandle = getDb()) {
   return (await h.db.$count(h.t.master, eq(h.t.master.id, masterId))) > 0;
 }
+
+/** Local release ids for provider release ids (one query). */
+export async function releasesByProviderIds(
+  provider: ProviderName,
+  ids: string[],
+  h: DbHandle = getDb(),
+) {
+  const out = new Map<string, { id: string; masterId: string }>();
+  if (!ids.length) return out;
+  const col =
+    provider === "discogs" ? h.t.release.discogsReleaseId : h.t.release.musicbrainzReleaseId;
+  const rows = await h.db
+    .select({ pid: col, id: h.t.release.id, masterId: h.t.release.masterId })
+    .from(h.t.release)
+    .where(inArray(col, ids));
+  for (const r of rows) if (r.pid) out.set(r.pid, { id: r.id, masterId: r.masterId });
+  return out;
+}
+
+/** Local master ids for provider master ids. */
+export async function mastersByProviderIds(
+  provider: ProviderName,
+  ids: string[],
+  h: DbHandle = getDb(),
+) {
+  const out = new Map<string, string>();
+  if (!ids.length) return out;
+  const col =
+    provider === "discogs" ? h.t.master.discogsMasterId : h.t.master.musicbrainzReleaseGroupId;
+  const rows = await h.db
+    .select({ pid: col, id: h.t.master.id })
+    .from(h.t.master)
+    .where(inArray(col, ids));
+  for (const r of rows) if (r.pid) out.set(r.pid, r.id);
+  return out;
+}

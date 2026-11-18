@@ -20,6 +20,7 @@ export default function ScanPage({ searchParams }: PageProps<"/scan">) {
 
 async function Station({ searchParams }: Pick<PageProps<"/scan">, "searchParams">) {
   await requireUser();
-  const { mode } = await searchParams;
-  return <ScanStation key={String(mode)} crate={mode === "crate"} />;
+  const { mode, wish } = await searchParams;
+  const m = mode === "crate" || mode === "check" ? mode : "single";
+  return <ScanStation key={m} mode={m} wish={typeof wish === "string" ? wish : undefined} />;
 }

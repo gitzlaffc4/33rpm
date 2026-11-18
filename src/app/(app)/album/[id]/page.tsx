@@ -12,6 +12,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getMasterPage } from "@/db/repos/catalog";
+import { wishlistFor } from "@/db/repos/wishlist";
+import { WantButtons } from "@/components/catalog/want-buttons";
+import { wantRelease } from "@/lib/catalog/wishlist-actions";
 import { refreshReleaseMetadata } from "@/lib/catalog/actions";
 import { FORMAT_LABEL, formatPrice } from "@/lib/catalog/format";
 import { requireUser } from "@/lib/session";
@@ -38,6 +41,12 @@ async function Album({ params, searchParams }: PageProps<"/album/[id]">) {
   const page = await getMasterPage(user.id, id);
   if (!page) notFound();
   const { master, releases } = page;
+  const wishes = await wishlistFor(user.id, {
+    masterIds: [master.id],
+    releaseIds: releases.map((r) => r.id),
+  });
+  const masterWish = wishes.find((w) => w.masterId === master.id);
+  const releaseWish = (rid: string) => wishes.find((w) => w.releaseId === rid);
   const owned = releases.filter((r) => r.copies.length);
   const others = releases.filter((r) => !r.copies.length);
   const hero = owned[0] ?? releases[0];
@@ -98,6 +107,12 @@ async function Album({ params, searchParams }: PageProps<"/album/[id]">) {
               <Link href={`/add/manual?master=${master.id}`}>Enter an edition manually</Link>
             </Button>
           </div>
+          {releases[0] && (
+            <WantButtons
+              wantMaster={wantRelease.bind(null, releases[0].id, "master")}
+              wished={masterWish ? { id: masterWish.id, target: "master" } : null}
+            />
+          )}
           <ExternalLinks master={master} />
         </div>
       </header>
@@ -109,13 +124,13 @@ async function Album({ params, searchParams }: PageProps<"/album/[id]">) {
           </h2>
           {owned.length === 0 && <p className="text-sm text-muted-foreground">None yet.</p>}
           {owned.map((r) => (
-            <ReleaseCard key={r.id} r={r} masterId={master.id} />
+            <ReleaseCard key={r.id} r={r} masterId={master.id} wishId={releaseWish(r.id)?.id} />
           ))}
           {others.length > 0 && (
             <>
               <h2 className="pt-4 text-xl font-semibold">Other editions in the catalog</h2>
               {others.map((r) => (
-                <ReleaseCard key={r.id} r={r} masterId={master.id} />
+                <ReleaseCard key={r.id} r={r} masterId={master.id} wishId={releaseWish(r.id)?.id} />
               ))}
             </>
           )}
@@ -171,7 +186,15 @@ function releaseUrl(r: ReleaseData) {
   return null;
 }
 
-function ReleaseCard({ r, masterId }: { r: ReleaseData; masterId: string }) {
+function ReleaseCard({
+  r,
+  masterId,
+  wishId,
+}: {
+  r: ReleaseData;
+  masterId: string;
+  wishId?: string;
+}) {
   const meta = [r.label, r.catalogNumber, r.country, r.releaseYear].filter(Boolean).join(" · ");
   const link = releaseUrl(r);
   return (
@@ -248,6 +271,12 @@ function ReleaseCard({ r, masterId }: { r: ReleaseData; masterId: string }) {
             <CopyPlus aria-hidden /> {r.copies.length ? "Add another copy" : "I own this edition"}
           </Link>
         </Button>
+        {(r.copies.length === 0 || wishId) && (
+          <WantButtons
+            wantRelease={wantRelease.bind(null, r.id, "release")}
+            wished={wishId ? { id: wishId, target: "release" } : null}
+          />
+        )}
         {r.dataSource !== "manual" && (
           <ActionButton
             action={refreshReleaseMetadata.bind(null, r.id)}
