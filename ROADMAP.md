@@ -29,16 +29,16 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 ## Phase 0.5 — Dual database support
 **Goal:** SQLite and PostgreSQL as peer backends, selected by `DATABASE_URL`. See `docs/addendum-01-postgres-support.md`.
 
-- [ ] `DATABASE_URL` parsing + dialect detection; replace `DATABASE_PATH`
-- [ ] Per-dialect schema trees (auth + settings tables) and migration folders
-- [ ] `withTransaction()` helper; repo layer for existing settings/auth access
-- [ ] Advisory-lock-guarded migrations on Postgres
-- [ ] Schema parity test; CI matrix (sqlite + postgres) for integration tests
-- [ ] `docker-compose.postgres.yml`; README "Choosing a database"
-- [ ] Admin CLI bundled as `dist/cli.js` (`docker exec 33rpm node dist/cli.js …`), using the repo layer so it works on both backends:
+- [x] `DATABASE_URL` parsing + dialect detection; replace `DATABASE_PATH`
+- [x] Per-dialect schema trees (auth + settings tables) and migration folders
+- [x] `withTransaction()` helper; repo layer for existing settings/auth access
+- [x] Advisory-lock-guarded migrations on Postgres
+- [x] Schema parity test; CI matrix (sqlite + postgres) for integration tests
+- [x] `docker-compose.postgres.yml`; README "Choosing a database"
+- [x] Admin CLI bundled as `dist/cli.js` (`docker exec 33rpm node dist/cli.js …`), using the repo layer so it works on both backends:
   - `reset-password <email>` — prompts for a new password (or generates and prints a temporary one), updates it via Better Auth's hasher, revokes all of that user's sessions
   - `create-setup-code` — prints a fresh first-run setup code; refuses if any user exists
-- [ ] README "Recovery" section documenting both commands
+- [x] README "Recovery" section documenting both commands
 
 ✅ Fresh install works on both backends; CI green on both; switching is only an env change on an empty DB.
 
@@ -151,4 +151,5 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 ## Parking lot
 _Ideas not yet assigned to a phase._
 
+- Adopt ESLint 10 once `eslint-config-next` ships plugins that support it (`eslint-plugin-react`, `-import` and `-jsx-a11y` stop at ESLint 9); remove the Dependabot ignore rule then.
 - Adopt TypeScript 7 (native compiler) once typescript-eslint supports it ([typescript-eslint#10940](https://github.com/typescript-eslint/typescript-eslint/issues/10940)); remove the Dependabot ignore rule then. TS 7 already passes typecheck and `next build` here, about 3× faster.

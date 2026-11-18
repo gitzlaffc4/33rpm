@@ -19,6 +19,10 @@ updates:
       # Remove this rule once typescript-eslint supports TS 7 (tracked in ROADMAP.md).
       - dependency-name: typescript
         versions: [">=7.0.0"]
+      # eslint-plugin-react / -import / -jsx-a11y (bundled by eslint-config-next) don't
+      # support ESLint 10 yet. Remove once they do (tracked in ROADMAP.md).
+      - dependency-name: eslint
+        versions: [">=10.0.0"]
       # @types/node must match the Node major we run (.nvmrc / Dockerfile), not the
       # newest Node. Bump it together with the runtime.
       - dependency-name: "@types/node"
