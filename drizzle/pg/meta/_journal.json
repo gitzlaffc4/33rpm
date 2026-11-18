@@ -29,6 +29,13 @@
       "when": 1794979679495,
       "tag": "0003_wishlist_acquired",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794980697056,
+      "tag": "0004_discogs_import",
+      "breakpoints": true
     }
   ]
 }

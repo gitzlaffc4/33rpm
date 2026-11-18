@@ -218,9 +218,12 @@ export const copy = sqliteTable(
     locationId: text("location_id").references(() => location.id, { onDelete: "set null" }),
     notes: text("notes"),
     rating: integer("rating"),
+    /** Discogs collection instance this copy was imported from (idempotent re-sync). */
+    discogsInstanceId: text("discogs_instance_id"),
     ...timestamps,
   },
   (t) => [
+    uniqueIndex("copy_user_discogs_instance_uidx").on(t.userId, t.discogsInstanceId),
     index("copy_user_idx").on(t.userId),
     index("copy_release_idx").on(t.releaseId),
     index("copy_location_idx").on(t.locationId),
@@ -335,4 +338,26 @@ export const scanItem = sqliteTable(
     ...timestamps,
   },
   (t) => [index("scan_item_user_status_idx").on(t.userId, t.status)],
+);
+
+export const IMPORT_JOB_STATUSES = ["queued", "running", "done", "failed"] as const;
+
+/** Background import jobs (Discogs collection/wantlist) with progress and a report. */
+export const importJob = sqliteTable(
+  "import_job",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    status: text("status", { enum: IMPORT_JOB_STATUSES }).notNull().default("queued"),
+    progress: text("progress", { mode: "json" })
+      .$type<{ done: number; total: number | null; step: string }>()
+      .notNull(),
+    report: text("report", { mode: "json" }).$type<Record<string, unknown> | null>(),
+    error: text("error"),
+    ...timestamps,
+  },
+  (t) => [index("import_job_user_idx").on(t.userId)],
 );
