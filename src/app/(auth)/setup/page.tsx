@@ -4,7 +4,6 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getDb } from "@/db";
 import { needsSetup } from "@/lib/setup-code";
 import { AuthCardSkeleton } from "../auth-skeleton";
 import { SetupForm } from "./setup-form";
@@ -21,7 +20,7 @@ export default function SetupPage() {
 
 async function SetupCard() {
   await connection();
-  if (!needsSetup(getDb())) redirect("/login");
+  if (!(await needsSetup())) redirect("/login");
 
   return (
     <Card>

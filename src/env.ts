@@ -1,6 +1,10 @@
 import path from "node:path";
 import { z } from "zod";
 
+import { DatabaseUrlError, parseDatabaseUrl } from "@/db/dialect";
+
+export { sqliteFileFromUrl } from "@/db/dialect";
+
 /**
  * Runtime configuration, validated with Zod.
  *
@@ -60,8 +64,14 @@ const schema = z
     ),
 
     DATA_DIR: optionalString,
-    /** `file:/path/to.db` (SQLite). PostgreSQL URLs are accepted from Phase 0.5. */
+    /** `file:/path/to.db` (SQLite, default) or `postgres://user:pass@host:5432/db`. */
     DATABASE_URL: optionalString,
+    /** PostgreSQL TLS: `true` (verify), `require` (encrypt, don't verify), `false`. Unset: follow the URL. */
+    DATABASE_SSL: optionalString.pipe(z.enum(["true", "false", "require"]).optional()),
+    /** PostgreSQL connection pool size. */
+    DATABASE_POOL_MAX: optionalString
+      .transform((v) => (v === undefined ? undefined : Number(v)))
+      .pipe(z.number().int().min(1).max(100).optional()),
 
     AUTH_LOCAL_LOGIN: bool(true),
     OIDC_ISSUER: optionalString.pipe(z.url().optional()),
@@ -106,41 +116,28 @@ const schema = z
       env.DATA_DIR ?? (env.NODE_ENV === "production" ? "/data" : "./data"),
     );
     const databaseUrl = env.DATABASE_URL ?? `file:${path.join(dataDir, "33rpm.db")}`;
-    const sqlitePath = sqliteFileFromUrl(databaseUrl);
-    if (!sqlitePath) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["DATABASE_URL"],
-        message: /^postgres(ql)?:/i.test(databaseUrl)
-          ? "PostgreSQL is not supported yet (planned for Phase 0.5); use a file: URL"
-          : "DATABASE_URL must start with file: (e.g. file:/data/33rpm.db)",
-      });
+    let target;
+    try {
+      target = parseDatabaseUrl(databaseUrl);
+    } catch (e) {
+      if (!(e instanceof DatabaseUrlError)) throw e;
+      ctx.addIssue({ code: "custom", path: ["DATABASE_URL"], message: e.message });
       return z.NEVER;
     }
     return {
       ...env,
       DATA_DIR: dataDir,
       DATABASE_URL: databaseUrl,
-      DATABASE_DIALECT: "sqlite" as const,
-      DATABASE_PATH: sqlitePath,
+      DATABASE_DIALECT: target.dialect,
+      /** SQLite file path (null on PostgreSQL). */
+      DATABASE_PATH: target.dialect === "sqlite" ? target.path : null,
+      DATABASE_POOL_MAX: env.DATABASE_POOL_MAX ?? 10,
       IMAGES_DIR: path.join(dataDir, "images"),
       BACKUPS_DIR: path.join(dataDir, "backups"),
       OIDC_ENABLED: Boolean(env.OIDC_ISSUER && env.OIDC_CLIENT_ID && env.OIDC_CLIENT_SECRET),
       SECURE_COOKIES: env.APP_URL.startsWith("https://"),
     };
   });
-
-/**
- * Resolve a SQLite `file:` URL to an absolute path. Accepts `file:/abs`, `file:./rel`
- * and `file:///abs`. Returns null for any other scheme.
- */
-export function sqliteFileFromUrl(url: string): string | null {
-  const m = /^file:(.+)$/i.exec(url.trim());
-  if (!m) return null;
-  let p = m[1];
-  if (p.startsWith("//")) p = p.replace(/^\/\/[^/]*/, ""); // file://host/path → /path
-  return p ? path.resolve(decodeURIComponent(p)) : null;
-}
 
 export type Env = z.infer<typeof schema>;
 

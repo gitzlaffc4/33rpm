@@ -6,25 +6,32 @@ import { nextCookies } from "better-auth/next-js";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 
 import { getDb } from "@/db";
-import { account, session, user, verification } from "@/db/schema";
+import { uuidv7 } from "@/db/ids";
+import { CREDENTIAL_PROVIDER_ID } from "@/db/repos/users";
 import { getEnv } from "@/env";
 import { isEmailAllowed } from "@/lib/oidc-policy";
 
 /** Better Auth provider id for the configured OIDC IdP. Callback: /api/auth/callback/oidc */
 export const OIDC_PROVIDER_ID = "oidc";
-export const LOCAL_PROVIDER_ID = "credential";
+export const LOCAL_PROVIDER_ID = CREDENTIAL_PROVIDER_ID;
 
 function createAuth() {
   const env = getEnv();
+  const { dialect, db, t } = getDb();
 
   return betterAuth({
     appName: "33rpm",
     baseURL: env.APP_URL,
     secret: env.AUTH_SECRET,
     telemetry: { enabled: false },
-    database: drizzleAdapter(getDb(), {
-      provider: "sqlite",
-      schema: { user, session, account, verification },
+    database: drizzleAdapter(db, {
+      provider: dialect,
+      schema: {
+        user: t.user,
+        session: t.session,
+        account: t.account,
+        verification: t.verification,
+      },
     }),
 
     emailAndPassword: {
@@ -70,6 +77,8 @@ function createAuth() {
     },
 
     advanced: {
+      // App-generated, time-sortable text IDs on every table (portability rule 1).
+      database: { generateId: () => uuidv7() },
       useSecureCookies: env.SECURE_COOKIES,
       ipAddress: {
         ipAddressHeaders: env.IP_ADDRESS_HEADERS,

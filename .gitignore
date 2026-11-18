@@ -180,3 +180,6 @@ next-env.d.ts
 /.e2e/
 /e2e/.server.log
 /e2e/.auth.json
+
+# CLI bundle (npm run build:cli)
+/dist/

@@ -1,13 +1,15 @@
 import path from "node:path";
 
 import { getDb } from "@/db";
-import { runMigrations } from "@/db/migrate";
+import { redactDatabaseUrl } from "@/db/dialect";
+import { migrateDatabase } from "@/db/migrate";
 import { EnvError, getEnv } from "@/env";
 import { formatSetupBanner, issueSetupCodeIfNeeded } from "@/lib/setup-code";
 
 /**
  * Runs once per server start (from instrumentation.ts), before any request:
- * 1. validate env  2. snapshot + migrate the DB  3. issue a setup code if no users exist.
+ * 1. validate env  2. migrate the DB (SQLite: snapshot first; PostgreSQL: advisory lock)
+ * 3. issue a setup code if no users exist.
  */
 export async function bootstrap() {
   let env;
@@ -22,18 +24,26 @@ export async function bootstrap() {
     throw e;
   }
 
-  const db = getDb();
-  const result = runMigrations({
-    sqlite: db.$client,
-    migrationsFolder: path.join(process.cwd(), "drizzle"),
+  const handle = getDb();
+  console.log(
+    `[33rpm] Database: ${handle.dialect === "pg" ? "PostgreSQL" : "SQLite"} (${redactDatabaseUrl(env.DATABASE_URL)})`,
+  );
+  const result = await migrateDatabase(handle, {
+    migrationsRoot: path.join(process.cwd(), "drizzle"),
     backupsDir: env.BACKUPS_DIR,
   });
   if (result.snapshot) console.log(`[33rpm] Pre-migration snapshot: ${result.snapshot}`);
   if (result.applied.length) {
+    // Only on upgrades: a brand-new database (first migration) has nothing to back up.
+    if (handle.dialect === "pg" && !result.applied.includes("0000_init")) {
+      console.log(
+        "[33rpm] PostgreSQL: no automatic pre-migration snapshot. Back up with pg_dump before upgrading.",
+      );
+    }
     console.log(`[33rpm] Applied migrations: ${result.applied.join(", ")}`);
   }
 
-  const code = issueSetupCodeIfNeeded(db);
+  const code = await issueSetupCodeIfNeeded(handle);
   if (code) console.log(formatSetupBanner(code, env.APP_URL));
 
   if (!env.SECURE_COOKIES && env.NODE_ENV === "production") {

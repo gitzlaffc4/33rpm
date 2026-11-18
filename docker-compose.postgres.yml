@@ -1,0 +1,44 @@
+# 33rpm with PostgreSQL instead of the default SQLite.
+#   1. Put your settings in .env (start from .env.example) and add a database password:
+#        POSTGRES_PASSWORD=<something long and random>
+#   2. docker compose -f docker-compose.postgres.yml up -d
+# /data is still needed for cover art, photos and backups.
+# Back up the database with pg_dump (see README → Choosing a database).
+services:
+  33rpm:
+    image: ghcr.io/gitzlaffc4/33rpm:latest
+    container_name: 33rpm
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      DATABASE_URL: postgres://33rpm:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/33rpm
+    volumes:
+      - ./data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17
+    container_name: 33rpm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: 33rpm
+      POSTGRES_DB: 33rpm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U 33rpm -d 33rpm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

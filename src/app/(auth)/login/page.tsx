@@ -4,7 +4,6 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getDb } from "@/db";
 import { getEnv } from "@/env";
 import { OIDC_PROVIDER_ID } from "@/lib/auth";
 import { authErrorMessage } from "@/lib/auth-errors";
@@ -31,7 +30,7 @@ function first(v: string | string[] | undefined) {
 async function LoginCard({ searchParams }: Pick<PageProps<"/login">, "searchParams">) {
   const params = await searchParams;
   await connection();
-  if (needsSetup(getDb())) redirect("/setup");
+  if (await needsSetup()) redirect("/setup");
 
   const next = safeNextPath(first(params.next));
   if (await getCurrentSession()) redirect(next);

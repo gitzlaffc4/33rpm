@@ -7,8 +7,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
-  // Native module: keep it out of the bundle and trace it into the standalone output.
-  serverExternalPackages: ["better-sqlite3"],
+  // Database drivers: keep them out of the bundle and trace them into the standalone
+  // output (the CLI in dist/cli.js loads the same copies).
+  serverExternalPackages: ["better-sqlite3", "pg"],
   // Files read at runtime that tracing can't see (or only sees for the build host):
   // - migrations, read from disk at startup
   // - better-sqlite3's glibc prebuilds for BOTH image architectures. Tracing on its
