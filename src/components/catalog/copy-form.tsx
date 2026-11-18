@@ -1,5 +1,6 @@
 "use client";
 
+import { useSuccessToast } from "@/components/toaster";
 import { useActionState, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ export function CopyForm({
   children,
 }: Props) {
   const [state, formAction, pending] = useActionState(action, {});
+  useSuccessToast(state);
   const [location, setLocation] = useState(initial.locationId ?? "");
   const currency = initial.currency ?? defaultCurrency;
 

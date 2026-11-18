@@ -1,5 +1,6 @@
 "use client";
 
+import { useSuccessToast } from "@/components/toaster";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
 
@@ -26,6 +27,7 @@ export function ActionButton({
 }) {
   const [pending, start] = useTransition();
   const [state, setState] = useState<FormState>({});
+  useSuccessToast(state);
   const Icon = icon === "refresh" ? RefreshCw : icon === "delete" ? Trash2 : null;
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
@@ -48,12 +50,8 @@ export function ActionButton({
         )}
         {pending && pendingLabel ? pendingLabel : label}
       </Button>
-      <span
-        role="status"
-        aria-live="polite"
-        className={state.error ? "text-xs text-destructive" : "text-xs text-success"}
-      >
-        {state.error ?? state.ok ?? ""}
+      <span role="status" aria-live="polite" className="text-xs text-destructive">
+        {state.error ?? ""}
       </span>
     </span>
   );
