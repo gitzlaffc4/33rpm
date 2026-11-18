@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import Link from "next/link";
 import { Suspense } from "react";
 
 import { SignOutButton } from "@/components/app-shell/sign-out-button";
 import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { getEnv } from "@/env";
@@ -121,6 +123,20 @@ async function SettingsContent({ searchParams }: Pick<PageProps<"/settings">, "s
         </CardHeader>
         <CardContent>
           <DiscogsSection status={await discogsTokenStatus(user.id)} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Import & export</CardTitle>
+          <CardDescription>
+            Import from Discogs or a CSV file; export your collection and wishlist.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="secondary">
+            <Link href="/settings/data">Open import & export</Link>
+          </Button>
         </CardContent>
       </Card>
 
