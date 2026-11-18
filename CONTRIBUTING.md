@@ -82,6 +82,9 @@ Releases are automated with [release-please](https://github.com/googleapis/relea
 2. Merging the Release PR tags `vX.Y.Z`, creates the GitHub release, and — in the same workflow
    run — builds, scans, attests and publishes the image.
 
+**First release:** `0.1.0` (`initial-version` in the config; without it release-please defaults
+a project's first release to `1.0.0`).
+
 **Version bumps before 1.0:** `feat` → minor (`0.1.0` → `0.2.0`), `fix`/`perf`/`deps` → patch,
 breaking changes → minor (`bump-minor-pre-major`). After 1.0, breaking changes bump the major.
 
