@@ -46,6 +46,11 @@ export async function bootstrap() {
   const code = await issueSetupCodeIfNeeded(handle);
   if (code) console.log(formatSetupBanner(code, env.APP_URL));
 
+  // Crate-mode lookups interrupted by a restart.
+  const { resumePendingLookups } = await import("@/lib/catalog/scan-lookup");
+  const resumed = await resumePendingLookups();
+  if (resumed) console.log(`[33rpm] Resuming ${resumed} pending scan lookup(s).`);
+
   if (!env.SECURE_COOKIES && env.NODE_ENV === "production") {
     console.warn(
       "[33rpm] APP_URL is not https: session cookies are not marked Secure. Use HTTPS outside a trusted LAN.",

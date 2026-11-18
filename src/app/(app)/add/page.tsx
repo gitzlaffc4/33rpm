@@ -1,4 +1,4 @@
-import { PenLine, Search } from "lucide-react";
+import { PenLine, ScanBarcode, Search } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -97,7 +97,12 @@ function SearchForm({ q = "", mode = "auto", format = "" }: Params) {
             ))}
           </NativeSelect>
         </div>
-        <Button asChild variant="ghost" className="ml-auto">
+        <Button asChild variant="secondary" className="ml-auto">
+          <Link href="/scan">
+            <ScanBarcode aria-hidden /> Scan
+          </Link>
+        </Button>
+        <Button asChild variant="ghost">
           <Link href="/add/manual">
             <PenLine aria-hidden /> Enter manually
           </Link>
