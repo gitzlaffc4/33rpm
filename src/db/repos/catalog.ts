@@ -426,6 +426,8 @@ export type CopyInput = {
   notes: string | null;
   rating: number | null;
   tags: string[];
+  /** Set on copies imported from a Discogs collection (re-sync key). */
+  discogsInstanceId?: string | null;
 };
 
 async function setCopyTags(tx: Db, t: Schema, userId: string, copyId: string, names: string[]) {
@@ -1112,4 +1114,69 @@ export async function mastersByProviderIds(
     .where(inArray(col, ids));
   for (const r of rows) if (r.pid) out.set(r.pid, r.id);
   return out;
+}
+
+/**
+ * A release matching imported data: by barcode, else by first artist + title + format
+ * (+ catalog number when given). Used to avoid duplicates on CSV re-imports.
+ */
+export async function findMatchingRelease(
+  m: {
+    artist: string;
+    title: string;
+    format: Format;
+    catalogNumber: string | null;
+    barcode: string | null;
+  },
+  h: DbHandle = getDb(),
+): Promise<string | null> {
+  if (m.barcode) {
+    const byBarcode = await findReleasesByBarcode(m.barcode, h);
+    if (byBarcode.length) return byBarcode[0];
+  }
+  const t = h.t;
+  const where = [
+    eq(t.release.titleSearch, searchKey(m.title)),
+    eq(t.release.format, m.format),
+    eq(t.artist.nameSearch, searchKey(m.artist)),
+    eq(t.releaseArtist.position, 0),
+  ];
+  if (m.catalogNumber)
+    where.push(eq(t.release.catalogNumberNorm, normalizeCatalogNumber(m.catalogNumber)));
+  const [row] = await h.db
+    .select({ id: t.release.id })
+    .from(t.release)
+    .innerJoin(t.releaseArtist, eq(t.releaseArtist.releaseId, t.release.id))
+    .innerJoin(t.artist, eq(t.artist.id, t.releaseArtist.artistId))
+    .where(and(...where))
+    .limit(1);
+  return row?.id ?? null;
+}
+
+export async function userOwnsRelease(userId: string, releaseId: string, h: DbHandle = getDb()) {
+  return (
+    (await h.db.$count(
+      h.t.copy,
+      and(eq(h.t.copy.userId, userId), eq(h.t.copy.releaseId, releaseId)),
+    )) > 0
+  );
+}
+
+/** A user's copy imported from a Discogs collection instance. */
+export async function findCopyByDiscogsInstance(
+  userId: string,
+  instanceId: string,
+  h: DbHandle = getDb(),
+) {
+  const [row] = await h.db
+    .select()
+    .from(h.t.copy)
+    .where(and(eq(h.t.copy.userId, userId), eq(h.t.copy.discogsInstanceId, instanceId)));
+  if (!row) return null;
+  const tags = await h.db
+    .select({ name: h.t.tag.name })
+    .from(h.t.copyTag)
+    .innerJoin(h.t.tag, eq(h.t.tag.id, h.t.copyTag.tagId))
+    .where(eq(h.t.copyTag.copyId, row.id));
+  return { ...row, tags: tags.map((t) => t.name) };
 }
