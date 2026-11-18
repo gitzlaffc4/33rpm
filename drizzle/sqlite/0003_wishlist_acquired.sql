@@ -1,0 +1,1 @@
+ALTER TABLE `wishlist_item` ADD `acquired_copy_id` text REFERENCES copy(id) ON DELETE SET NULL;
