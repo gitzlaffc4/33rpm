@@ -19,7 +19,13 @@ import {
 } from "drizzle-orm/pg-core";
 
 import type { Track } from "@/lib/catalog/types";
-import { CONDITIONS, DATA_SOURCES, FORMATS, WISHLIST_STATUSES } from "../sqlite/catalog";
+import {
+  CONDITIONS,
+  DATA_SOURCES,
+  FORMATS,
+  SCAN_STATUSES,
+  WISHLIST_STATUSES,
+} from "../sqlite/catalog";
 import { user } from "./auth";
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
@@ -297,4 +303,23 @@ export const providerCache = pgTable(
     fetchedAt: ts("fetched_at").notNull(),
   },
   (t) => [primaryKey({ columns: [t.provider, t.cacheKey] })],
+);
+
+/** Crate mode scan queue (see ../sqlite/catalog.ts). */
+export const scanItem = pgTable(
+  "scan_item",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    barcode: text("barcode").notNull(),
+    status: text("status", { enum: SCAN_STATUSES }).notNull().default("pending"),
+    candidates: jsonb("candidates").$type<unknown[]>().notNull(),
+    releaseId: text("release_id").references(() => release.id, { onDelete: "set null" }),
+    copyId: text("copy_id").references(() => copy.id, { onDelete: "set null" }),
+    error: text("error"),
+    ...timestamps,
+  },
+  (t) => [index("scan_item_user_status_idx").on(t.userId, t.status)],
 );

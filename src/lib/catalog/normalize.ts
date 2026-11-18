@@ -51,3 +51,15 @@ export function defaultSortName(name: string): string {
   const m = /^(the|a|an)\s+(.+)$/i.exec(name.trim());
   return m ? `${m[2]}, ${m[1]}` : name.trim();
 }
+
+/**
+ * Equivalent spellings of a UPC/EAN: a 12-digit UPC-A is the same code as the 13-digit
+ * EAN-13 with a leading 0 (scanners report either).
+ */
+export function barcodeVariants(value: string): string[] {
+  const d = normalizeBarcode(value);
+  if (!d) return [];
+  if (d.length === 12) return [d, `0${d}`];
+  if (d.length === 13 && d.startsWith("0")) return [d, d.slice(1)];
+  return [d];
+}
