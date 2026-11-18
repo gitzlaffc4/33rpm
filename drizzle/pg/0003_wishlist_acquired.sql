@@ -1,0 +1,2 @@
+ALTER TABLE "wishlist_item" ADD COLUMN "acquired_copy_id" text;--> statement-breakpoint
+ALTER TABLE "wishlist_item" ADD CONSTRAINT "wishlist_item_acquired_copy_id_copy_id_fk" FOREIGN KEY ("acquired_copy_id") REFERENCES "public"."copy"("id") ON DELETE set null ON UPDATE no action;
