@@ -94,16 +94,16 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 ## Phase 4 — Import, export & backup
 **Goal:** Bring my existing data in; never lose it.
 
-- [ ] Discogs import: collection (with folders → Locations/Tags, conditions, notes) and wantlist
-- [ ] Re-sync from Discogs (idempotent; no duplicates; report of added/updated/skipped)
-- [ ] CSV import with column mapping (covers MusicBuddy/CLZ-style exports)
-- [ ] CSV + JSON export of everything
-- [ ] Automatic nightly SQLite snapshots in `/data/backups` (retention configurable)
-- [ ] Restore-from-backup docs
-- [ ] Shared copy engine (`src/db/copy/`) used by DB switching and JSON export/import
-- [ ] In-app "Import existing library" startup flow (setup-code protected; `MIGRATE_FROM_URL` or default SQLite file when on Postgres)
-- [ ] `db:copy` CLI, both directions (SQLite ⇄ Postgres), with `--dry-run`
-- [ ] Document `pg_dump` for Postgres backups
+- [x] Discogs import: collection (with folders → Locations/Tags, conditions, notes) and wantlist
+- [x] Re-sync from Discogs (idempotent; no duplicates; report of added/updated/skipped)
+- [x] CSV import with column mapping (covers MusicBuddy/CLZ-style exports)
+- [x] CSV + JSON export of everything
+- [x] Automatic nightly SQLite snapshots in `/data/backups` (retention configurable)
+- [x] Restore-from-backup docs
+- [x] Shared copy engine (`src/db/copy/`) used by DB switching and JSON export/import
+- [x] In-app "Import existing library" startup flow (setup-code protected; `MIGRATE_FROM_URL` or default SQLite file when on Postgres)
+- [x] `db:copy` CLI, both directions (SQLite ⇄ Postgres), with `--dry-run`
+- [x] Document `pg_dump` for Postgres backups
 
 ✅ A Discogs collection of 500+ items imports unattended within rate limits, and a re-run changes nothing.
 ✅ Switching SQLite → Postgres is: change `DATABASE_URL`, restart, confirm import, log in — with all data and images intact.

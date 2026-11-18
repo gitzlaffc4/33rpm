@@ -43,6 +43,15 @@ export async function bootstrap() {
     console.log(`[33rpm] Applied migrations: ${result.applied.join(", ")}`);
   }
 
+  // An existing library to import (switching databases)? Offered on the setup screen.
+  const { computeLibraryOffer } = await import("./library-offer");
+  const offer = await computeLibraryOffer(handle, env, path.join(process.cwd(), "drizzle"));
+  if (offer) {
+    console.log(
+      `[33rpm] Found an existing ${offer.source.dialect === "pg" ? "PostgreSQL" : "SQLite"} library to import (${offer.summary}). Open /setup to import it.`,
+    );
+  }
+
   const code = await issueSetupCodeIfNeeded(handle);
   if (code) console.log(formatSetupBanner(code, env.APP_URL));
 
@@ -50,6 +59,17 @@ export async function bootstrap() {
   const { resumePendingLookups } = await import("@/lib/catalog/scan-lookup");
   const resumed = await resumePendingLookups();
   if (resumed) console.log(`[33rpm] Resuming ${resumed} pending scan lookup(s).`);
+
+  const { resumeImportJobs } = await import("@/lib/integrations/discogs-import");
+  const jobs = await resumeImportJobs();
+  if (jobs) console.log(`[33rpm] Resuming ${jobs} import job(s).`);
+
+  const { startBackupSchedule } = await import("./backups");
+  startBackupSchedule(handle, {
+    backupsDir: env.BACKUPS_DIR,
+    intervalHours: env.BACKUP_INTERVAL_HOURS,
+    keep: env.BACKUP_KEEP,
+  });
 
   if (!env.SECURE_COOKIES && env.NODE_ENV === "production") {
     console.warn(

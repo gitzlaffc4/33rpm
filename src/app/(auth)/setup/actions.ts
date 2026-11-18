@@ -17,6 +17,17 @@ import {
   needsSetup,
 } from "@/lib/setup-code";
 
+import path from "node:path";
+
+import { CopyError } from "@/db/copy";
+import { importLibrary } from "@/db/copy/library-import";
+import {
+  clearLibraryOffer,
+  getLibraryOffer,
+  isImporting,
+  setImporting,
+} from "@/server/library-offer";
+
 export type SetupState = { error?: string; fieldErrors?: Record<string, string[] | undefined> };
 
 const SetupInput = z
@@ -40,6 +51,7 @@ export async function completeSetup(_prev: SetupState, formData: FormData): Prom
   const input = parsed.data;
 
   if (!(await needsSetup())) redirect("/login");
+  if (isImporting()) return { error: "A library import is running. Wait for it to finish." };
 
   if (!(await consumeSetupCode(input.setupCode))) {
     // Slow down guessing (the code has ~79 bits of entropy; this is belt and braces).
@@ -77,4 +89,52 @@ export async function completeSetup(_prev: SetupState, formData: FormData): Prom
     headers: await headers(),
   });
   redirect("/library");
+}
+
+export type ImportState = { error?: string };
+
+/**
+ * "Import existing library": copy the library found at startup into this (empty)
+ * database. Protected by the setup code; nothing else can write while it runs (there are
+ * no users yet, and setup is blocked).
+ */
+export async function importExistingLibrary(
+  _prev: ImportState,
+  formData: FormData,
+): Promise<ImportState> {
+  const offer = getLibraryOffer();
+  if (!offer || !(await needsSetup())) redirect("/login");
+  if (isImporting()) return { error: "An import is already running." };
+  const code = formData.get("setupCode");
+  if (typeof code !== "string" || !(await consumeSetupCode(code.trim()))) {
+    await new Promise((r) => setTimeout(r, 1000));
+    return { error: "Invalid setup code" };
+  }
+  setImporting(true);
+  try {
+    const env = getEnv();
+    const { result } = await importLibrary({
+      sourceUrl: offer.source.url,
+      target: getDb(),
+      migrationsRoot: path.join(process.cwd(), "drizzle"),
+      backupsDir: env.BACKUPS_DIR,
+      renameSourceAfter: offer.isDefaultSqlite,
+      log: (line) => console.log(`[33rpm] import: ${line}`),
+    });
+    clearLibraryOffer();
+    console.log(`[33rpm] Library imported in ${result?.durationMs} ms. Log: ${result?.logFile}`);
+  } catch (e) {
+    console.error("[33rpm] Library import failed:", e);
+    const fresh = await issueSetupCodeIfNeeded();
+    if (fresh) console.log(formatSetupBanner(fresh, getEnv().APP_URL));
+    return {
+      error:
+        e instanceof CopyError
+          ? `${e.message} Nothing was changed. A new setup code is in the server logs.`
+          : "The import failed and was rolled back. Check the server logs (a new setup code is there too).",
+    };
+  } finally {
+    setImporting(false);
+  }
+  redirect("/login?imported=1");
 }

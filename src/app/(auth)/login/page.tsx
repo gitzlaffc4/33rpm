@@ -53,7 +53,9 @@ async function LoginCard({ searchParams }: Pick<PageProps<"/login">, "searchPara
           notice={
             first(params.setup) === "done"
               ? "Admin account created. Sign in with SSO using the same (verified) email address."
-              : null
+              : first(params.imported) === "1"
+                ? "Library imported. Sign in with your existing account."
+                : null
           }
         />
       </CardContent>

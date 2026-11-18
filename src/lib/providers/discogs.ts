@@ -107,7 +107,7 @@ export function discogsFormat(name: string | undefined): Format {
   return "other";
 }
 
-function credits(artists: z.infer<typeof ArtistsSchema>): ArtistCredit[] {
+export function credits(artists: z.infer<typeof ArtistsSchema>): ArtistCredit[] {
   return artists.map((a) => ({
     name: stripDisambiguation(a.anv || a.name),
     providerId: String(a.id),
@@ -201,7 +201,8 @@ export function mapDiscogsRelease(r: DiscogsRelease, master?: MasterDetail): Rel
   };
 }
 
-export function createDiscogsProvider(token: string): MetadataProvider {
+/** Authenticated, rate-limited GET against the Discogs API (shared by provider and importer). */
+export function discogsClient(token: string) {
   const headers = { Authorization: `Discogs token=${token}` };
   // Pause the shared queue when Discogs says we're nearly out of requests.
   const onResponse = (res: Response) => {
@@ -214,8 +215,14 @@ export function createDiscogsProvider(token: string): MetadataProvider {
       }
     }
   };
-  const get = <T>(path: string, schema: z.ZodType<T>) =>
+  return <T>(path: string, schema: z.ZodType<T>) =>
     fetchJson(`${API}${path}`, { provider: "discogs", schema, headers, onResponse });
+}
+
+export function createDiscogsProvider(token: string): MetadataProvider & {
+  getReleaseOnly(id: string): Promise<ReleaseDetail>;
+} {
+  const get = discogsClient(token);
 
   const search = async (params: Record<string, string>) => {
     const qs = new URLSearchParams({ type: "release", per_page: "25", ...params });
@@ -248,6 +255,10 @@ export function createDiscogsProvider(token: string): MetadataProvider {
         q: query.trim(),
         ...(opts?.format && formatParam ? { format: formatParam } : {}),
       });
+    },
+    /** Release without the extra master request (bulk imports). */
+    async getReleaseOnly(id: string) {
+      return mapDiscogsRelease(await get(`/releases/${encodeURIComponent(id)}`, ReleaseSchema));
     },
     async getRelease(id: string) {
       const r = await get(`/releases/${encodeURIComponent(id)}`, ReleaseSchema);

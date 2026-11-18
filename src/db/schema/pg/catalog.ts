@@ -23,6 +23,7 @@ import {
   CONDITIONS,
   DATA_SOURCES,
   FORMATS,
+  IMPORT_JOB_STATUSES,
   SCAN_STATUSES,
   WISHLIST_STATUSES,
 } from "../sqlite/catalog";
@@ -221,9 +222,12 @@ export const copy = pgTable(
     locationId: text("location_id").references(() => location.id, { onDelete: "set null" }),
     notes: text("notes"),
     rating: integer("rating"),
+    /** Discogs collection instance this copy was imported from (idempotent re-sync). */
+    discogsInstanceId: text("discogs_instance_id"),
     ...timestamps,
   },
   (t) => [
+    uniqueIndex("copy_user_discogs_instance_uidx").on(t.userId, t.discogsInstanceId),
     index("copy_user_idx").on(t.userId),
     index("copy_release_idx").on(t.releaseId),
     index("copy_location_idx").on(t.locationId),
@@ -324,4 +328,24 @@ export const scanItem = pgTable(
     ...timestamps,
   },
   (t) => [index("scan_item_user_status_idx").on(t.userId, t.status)],
+);
+
+/** Background import jobs (see ../sqlite/catalog.ts). */
+export const importJob = pgTable(
+  "import_job",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    status: text("status", { enum: IMPORT_JOB_STATUSES }).notNull().default("queued"),
+    progress: jsonb("progress")
+      .$type<{ done: number; total: number | null; step: string }>()
+      .notNull(),
+    report: jsonb("report").$type<Record<string, unknown> | null>(),
+    error: text("error"),
+    ...timestamps,
+  },
+  (t) => [index("import_job_user_idx").on(t.userId)],
 );

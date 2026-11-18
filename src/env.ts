@@ -92,6 +92,21 @@ const schema = z
     ),
 
     DISCOGS_TOKEN: optionalString,
+
+    /** Import an existing library from this database on first boot (Phase 4). */
+    MIGRATE_FROM_URL: optionalString,
+    /** Automatic SQLite snapshots: hours between snapshots (0 disables) and how many to keep. */
+    BACKUP_INTERVAL_HOURS: optionalString
+      .transform((v) => (v === undefined ? 24 : Number(v)))
+      .pipe(
+        z
+          .number()
+          .min(0)
+          .max(24 * 30),
+      ),
+    BACKUP_KEEP: optionalString
+      .transform((v) => (v === undefined ? 7 : Number(v)))
+      .pipe(z.number().int().min(1).max(365)),
   })
   .superRefine((env, ctx) => {
     const oidc = [env.OIDC_ISSUER, env.OIDC_CLIENT_ID, env.OIDC_CLIENT_SECRET];
@@ -109,6 +124,16 @@ const schema = z
         path: ["AUTH_LOCAL_LOGIN"],
         message: "AUTH_LOCAL_LOGIN=false requires OIDC to be configured, or nobody could log in",
       });
+    }
+  })
+  .superRefine((env, ctx) => {
+    if (env.MIGRATE_FROM_URL) {
+      try {
+        parseDatabaseUrl(env.MIGRATE_FROM_URL);
+      } catch (e) {
+        if (!(e instanceof DatabaseUrlError)) throw e;
+        ctx.addIssue({ code: "custom", path: ["MIGRATE_FROM_URL"], message: e.message });
+      }
     }
   })
   .transform((env, ctx) => {
