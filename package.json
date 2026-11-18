@@ -17,7 +17,9 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "build:cli": "esbuild src/cli.ts --bundle --platform=node --target=node26 --format=cjs --outfile=dist/cli.js --external:better-sqlite3 --external:pg --external:pg-native --log-level=warning",
-    "db:seed": "esbuild scripts/seed.ts --bundle --platform=node --target=node26 --format=cjs --outfile=dist/seed.js --external:better-sqlite3 --external:pg --external:pg-native --external:sharp --alias:server-only=./tests/stubs/server-only.ts --log-level=warning && node --env-file-if-exists=.env dist/seed.js"
+    "db:seed": "esbuild scripts/seed.ts --bundle --platform=node --target=node26 --format=cjs --outfile=dist/seed.js --external:better-sqlite3 --external:pg --external:pg-native --external:sharp --alias:server-only=./tests/stubs/server-only.ts --log-level=warning && node --env-file-if-exists=.env dist/seed.js",
+    "bench": "npm run build:bench && node dist/bench.js",
+    "build:bench": "esbuild scripts/bench.ts --bundle --platform=node --target=node26 --format=cjs --outfile=dist/bench.js --external:better-sqlite3 --external:pg --external:pg-native --external:sharp --alias:server-only=./tests/stubs/server-only.ts --log-level=warning"
   },
   "dependencies": {
     "@radix-ui/react-label": "2.1.17",
@@ -38,6 +40,7 @@
     "react-dom": "19.3.1",
     "server-only": "0.0.1",
     "sharp": "0.35.5",
+    "sonner": "2.0.8",
     "tailwind-merge": "3.7.0",
     "zod": "4.6.7"
   },

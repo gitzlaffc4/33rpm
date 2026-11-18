@@ -81,18 +81,23 @@ export async function exportCollection(
           .where(inArray(t.copyTag.copyId, copyIds))
       : [],
   ]);
+  const group = <T, K>(items: T[], key: (x: T) => K) => {
+    const m = new Map<K, T[]>();
+    for (const x of items) m.set(key(x), [...(m.get(key(x)) ?? []), x]);
+    return m;
+  };
+  const artistsBy = group(artists, (a) => a.releaseId);
+  const barcodesBy = group(barcodes, (b) => b.releaseId);
+  const tagsBy = group(tags, (x) => x.copyId);
   return rows.map(({ copy: c, release: r, location }) => ({
     copy_id: c.id,
-    artist: creditsDisplay(artists.filter((a) => a.releaseId === r.id)),
+    artist: creditsDisplay(artistsBy.get(r.id) ?? []),
     title: r.title,
     format: r.format,
     format_details: r.formatDetails.join(", "),
     label: r.label,
     catalog_number: r.catalogNumber,
-    barcode: barcodes
-      .filter((b) => b.releaseId === r.id)
-      .map((b) => b.barcode)
-      .join(" | "),
+    barcode: (barcodesBy.get(r.id) ?? []).map((b) => b.barcode).join(" | "),
     country: r.country,
     year: r.releaseYear,
     media_condition: c.mediaCondition,
@@ -102,10 +107,7 @@ export async function exportCollection(
     acquired_on: c.acquiredOn,
     source: c.source,
     location,
-    tags: tags
-      .filter((x) => x.copyId === c.id)
-      .map((x) => x.name)
-      .join(", "),
+    tags: (tagsBy.get(c.id) ?? []).map((x) => x.name).join(", "),
     rating: c.rating,
     notes: c.notes,
     added_at: c.createdAt.toISOString(),

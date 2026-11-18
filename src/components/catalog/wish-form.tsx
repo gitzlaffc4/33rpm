@@ -1,5 +1,6 @@
 "use client";
 
+import { useSuccessToast } from "@/components/toaster";
 import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function WishForm({
   defaultCurrency: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
+  useSuccessToast(state);
   const currency = initial.currency ?? defaultCurrency;
   return (
     <form action={formAction} className="space-y-4">
@@ -88,12 +90,8 @@ export function WishForm({
         <Button type="submit" disabled={pending}>
           Save
         </Button>
-        <p
-          role="status"
-          aria-live="polite"
-          className={state.error ? "text-sm text-destructive" : "text-sm text-success"}
-        >
-          {state.error ?? state.ok ?? ""}
+        <p role="status" aria-live="polite" className="text-sm text-destructive">
+          {state.error ?? ""}
         </p>
       </div>
     </form>

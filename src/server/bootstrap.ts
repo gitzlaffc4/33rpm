@@ -55,6 +55,15 @@ export async function bootstrap() {
   const code = await issueSetupCodeIfNeeded(handle);
   if (code) console.log(formatSetupBanner(code, env.APP_URL));
 
+  // Search index in sync with the catalog (it's derived data; rebuilt after imports/upgrades).
+  const { getSearchIndex } = await import("@/db/search");
+  const index = getSearchIndex(handle);
+  const releases = await handle.db.$count(handle.t.release);
+  if ((await index.count()) !== releases) {
+    const n = await index.rebuild();
+    console.log(`[33rpm] Search index rebuilt (${n} releases).`);
+  }
+
   // Crate-mode lookups interrupted by a restart.
   const { resumePendingLookups } = await import("@/lib/catalog/scan-lookup");
   const resumed = await resumePendingLookups();

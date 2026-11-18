@@ -227,6 +227,7 @@ test.describe("signed in", () => {
       "Csv Band,Imported Vol. 2,CD,CSV-002,VG+,5,Crate CSV,",
     ].join("\n");
     await page.goto("/settings/data");
+    await page.waitForLoadState("networkidle"); // hydrated, so the file input's change handler is live
     await page
       .getByLabel("CSV file")
       .setInputFiles({ name: "my.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
@@ -248,5 +249,25 @@ test.describe("signed in", () => {
     expect(json.collection.some((r: { title: string }) => r.title === "Imported Vol. 2")).toBe(
       true,
     );
+  });
+
+  test("search as you type and stats", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop", "once is enough");
+    await page.goto("/library");
+    await page.waitForLoadState("networkidle"); // the "/" shortcut listener is attached on hydration
+    await page.keyboard.press("/");
+    await expect(page).toHaveURL(/\/search/);
+    await page.getByLabel("Search your collection").fill("basem tap");
+    await expect(
+      page.getByRole("link", { name: /Basement Tapes \(desktop\)/ }).first(),
+    ).toBeVisible();
+    await page.getByLabel("Search your collection").fill("CSV-002");
+    await expect(page.getByRole("link", { name: /Imported Vol\. 2/ })).toBeVisible();
+    await page.getByLabel("Search your collection").fill("crate csv");
+    await expect(page.getByRole("link", { name: /Crate CSV/ })).toBeVisible();
+
+    await page.goto("/stats");
+    await expect(page.getByText("Copies", { exact: true })).toBeVisible();
+    await expect(page.getByRole("list", { name: "Copies by format" })).toBeVisible();
   });
 });

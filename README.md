@@ -8,14 +8,42 @@
 
 33rpm is a self-hosted library for your physical music collection. Scan barcodes or search by title to add the exact pressing, track condition and shelf location, and keep a wishlist of what you're hunting. Discogs + MusicBrainz metadata, Docker-ready, runs on a Raspberry Pi.
 
-> **Status:** early development. Phase 0 (foundation: auth, app shell, settings, Docker, CI) is
-> in place; cataloging arrives in Phase 1. See [ROADMAP.md](ROADMAP.md).
+> **Status:** feature-complete for v1 and in pre-release testing. See [ROADMAP.md](ROADMAP.md).
+
+<p align="center">
+  <img src="docs/screenshots/library.png" alt="Library: a grid of album covers with filters" width="72%">
+  <img src="docs/screenshots/phone-scan.png" alt="Crate-mode scanning on a phone" width="20%">
+</p>
+
+- **Add the exact pressing** by search, barcode, catalog number or camera scan; manual entry for
+  anything else. Discogs (with a token) and MusicBrainz metadata, cover art cached locally.
+- **Crate mode:** scan a stack of records on your phone, confirm the ambiguous ones at the end.
+- **In-store check:** scan something in a shop and see instantly whether you own it or want it.
+- **Copies** with Goldmine conditions, price, date, source, shelf, tags, rating and photos.
+- **Wishlist** for any edition or one specific pressing, with priorities and max prices.
+- **Import** from Discogs (collection + wantlist, re-syncable) or CSV; **export** to CSV/JSON.
+- Instant search, filters, and stats. Installable PWA, mobile-first, dark by default.
 
 - One container, one volume (`/data`), SQLite by default. No Redis, no external services.
 - Sign in with a local admin account and/or any OpenID Connect provider (Authentik, Authelia,
   Keycloak, Pocket ID, Zitadel, …).
 - Multi-arch image (`linux/amd64`, `linux/arm64`) that runs comfortably on a Raspberry Pi 5.
 - No telemetry. The only outbound calls are to the metadata providers you use.
+
+<details>
+<summary>More screenshots</summary>
+
+| Album | Stats | Search |
+| --- | --- | --- |
+| ![Album page](docs/screenshots/album.png) | ![Stats](docs/screenshots/stats.png) | ![Search](docs/screenshots/search.png) |
+
+| Wishlist | Phone: library | Phone: album |
+| --- | --- | --- |
+| ![Wishlist](docs/screenshots/wishlist.png) | ![Library on a phone](docs/screenshots/phone-library.png) | ![Album on a phone](docs/screenshots/phone-album.png) |
+
+Screenshots use the sample data from `npm run db:seed` (generated covers).
+
+</details>
 
 ---
 
@@ -221,6 +249,26 @@ On plain HTTP (e.g. `http://pi.local:3000` on a trusted LAN) everything works, b
 
 ---
 
+## Discogs token
+
+Without a token 33rpm uses MusicBrainz only, which is fine for most CDs and well-known vinyl.
+A Discogs token adds Discogs search (better for vinyl pressings, catalog numbers and obscure
+releases) and enables the collection/wantlist import.
+
+1. Sign in at discogs.com → **Settings → Developers**.
+2. Click **Generate new token** and copy it.
+3. In 33rpm open **Settings → Discogs**, paste it and save. It's stored encrypted; or set
+   `DISCOGS_TOKEN` for the whole instance.
+
+33rpm stays within Discogs' limit of 60 requests/minute and shows "Data provided by Discogs"
+wherever Discogs data appears.
+
+## Portainer
+
+Use [`docs/portainer-stack.yml`](docs/portainer-stack.yml) as a Portainer stack (Stacks → Add
+stack → Web editor). Set the environment variables in Portainer's editor below it (`APP_URL`,
+`AUTH_SECRET`, optionally the OIDC ones). The stack keeps everything in one named volume.
+
 ## Single sign-on (OIDC)
 
 1. In your IdP, create an OIDC client (confidential, authorization code flow) with redirect URI
@@ -386,6 +434,7 @@ npm run dev             # http://localhost:3000; the setup code prints in this t
 | `npm run test:integration` | Integration tests only. Set `TEST_DATABASE_URL=postgres://…` to run them on PostgreSQL. |
 | `npm run build:cli`   | Bundle the admin CLI to `dist/cli.js`.                                                 |
 | `npm run test:e2e`    | Playwright smoke test against the production build (run `npm run build` first).       |
+| `npm run bench -- <url> [n]` | Fill an empty throwaway database with n copies and time the main queries (see [docs/performance.md](docs/performance.md)). |
 | `npm run db:seed`     | Add ~20 sample releases (generated covers) for the first user. Run setup first; `-- --force` to repeat. |
 | `npm run db:generate` | Generate migrations for **both** dialects after changing `src/db/schema/{sqlite,pg}`. Migrations are committed. |
 

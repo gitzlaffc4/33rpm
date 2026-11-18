@@ -1,0 +1,27 @@
+# 33rpm stack for Portainer (Stacks → Add stack → Web editor).
+# Set these in Portainer's "Environment variables" section below the editor:
+#   APP_URL      e.g. https://records.example.com (the URL you open 33rpm at)
+#   AUTH_SECRET  a long random string: `openssl rand -base64 32`
+# Optional: DISCOGS_TOKEN, OIDC_ISSUER / OIDC_CLIENT_ID / OIDC_CLIENT_SECRET, TRUSTED_PROXIES.
+# First start: open the container's logs in Portainer and copy the one-time setup code.
+services:
+  33rpm:
+    image: ghcr.io/gitzlaffc4/33rpm:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      APP_URL: ${APP_URL}
+      AUTH_SECRET: ${AUTH_SECRET}
+      DISCOGS_TOKEN: ${DISCOGS_TOKEN:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+    volumes:
+      - 33rpm-data:/data
+
+volumes:
+  33rpm-data:
