@@ -67,11 +67,11 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 ## Phase 2 — Scanning & mobile
 **Goal:** Catalog a whole crate from my phone in one sitting.
 
-- [ ] PWA manifest, icons ("33" record-label icon), offline shell, installable on iOS/Android
-- [ ] Camera barcode scanning via `@zxing/browser` (requires HTTPS — document this)
-- [ ] **Crate mode:** continuous scanning; each scan queues a lookup; review/confirm queue afterwards; ambiguous matches flagged
-- [ ] Haptic/audio feedback on scan; manual barcode fallback
-- [ ] Mobile layout pass on all Phase 1 screens
+- [x] PWA manifest, icons ("33" record-label icon), offline shell, installable on iOS/Android
+- [x] Camera barcode scanning via `@zxing/browser` (requires HTTPS — document this)
+- [x] **Crate mode:** continuous scanning; each scan queues a lookup; review/confirm queue afterwards; ambiguous matches flagged
+- [x] Haptic/audio feedback on scan; manual barcode fallback
+- [x] Mobile layout pass on all Phase 1 screens
 
 ✅ Scanning 25 CDs in crate mode takes a few minutes, and I only confirm the ambiguous ones.
 

@@ -6,8 +6,10 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "./nav-items";
 
-function isActive(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`);
+function isActive(pathname: string, item: { href: string; also?: string[] }) {
+  return [item.href, ...(item.also ?? [])].some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
 }
 
 /** Vertical nav for the desktop sidebar. */
@@ -19,8 +21,9 @@ export function SidebarNav() {
 export function SidebarNavList({ pathname }: { pathname: string }) {
   return (
     <nav aria-label="Main" className="flex flex-col gap-1">
-      {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-        const active = isActive(pathname, href);
+      {NAV_ITEMS.map((item) => {
+        const { href, label, icon: Icon } = item;
+        const active = isActive(pathname, item);
         return (
           <Link
             key={href}
@@ -52,8 +55,9 @@ export function MobileTabBarList({ pathname }: { pathname: string }) {
       className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
     >
       <ul className="grid grid-cols-5">
-        {NAV_ITEMS.map(({ href, label, icon: Icon, primary }) => {
-          const active = isActive(pathname, href);
+        {NAV_ITEMS.map((item) => {
+          const { href, label, icon: Icon, primary } = item;
+          const active = isActive(pathname, item);
           return (
             <li key={href}>
               <Link

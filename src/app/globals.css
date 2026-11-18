@@ -95,6 +95,13 @@
   html {
     color-scheme: dark;
   }
+  /* Phones: keep focused/scrolled-to elements clear of the sticky header and tab bar. */
+  @media (width < 48rem) {
+    html {
+      scroll-padding-top: calc(4rem + env(safe-area-inset-top));
+      scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+    }
+  }
   html:not(.dark) {
     color-scheme: light;
   }
