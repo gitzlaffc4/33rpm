@@ -113,16 +113,16 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 ## Phase 5 — Polish & stats → **v1.0 public release**
 **Goal:** Something I'm proud to make public.
 
-- [ ] Global search (instant, across artists/titles/labels/catno/tags)
-- [ ] Filters + sort on every library view (format, genre, decade, condition, location, tag, price)
-- [ ] Stats dashboard: counts by format/genre/decade/label, spend over time, recently added
-- [ ] Empty states, loading skeletons, error handling, toasts
-- [ ] `SearchIndex` implementations for SQLite (FTS5) and Postgres (tsvector + pg_trgm)
-- [ ] Performance check on a Pi 5 with 2,000+ items, on both SQLite and Postgres
-- [ ] Docs: full README with screenshots, Portainer stack example, reverse-proxy/HTTPS notes, Discogs token how-to, backup/restore
+- [x] Global search (instant, across artists/titles/labels/catno/tags)
+- [x] Filters + sort on every library view (format, genre, decade, condition, location, tag, price)
+- [x] Stats dashboard: counts by format/genre/decade/label, spend over time, recently added
+- [x] Empty states, loading skeletons, error handling, toasts
+- [x] `SearchIndex` implementations for SQLite (FTS5) and Postgres (tsvector + pg_trgm)
+- [ ] Performance check on a Pi 5 with 2,000+ items, on both SQLite and Postgres — benchmark tool and x86 numbers in `docs/performance.md`; run `node dist/bench.js` on a Pi to finish
+- [x] Docs: full README with screenshots, Portainer stack example, reverse-proxy/HTTPS notes, Discogs token how-to, backup/restore
 - [ ] Choose and add LICENSE (MIT vs AGPL-3.0); replace the README license badge placeholder
 - [x] CONTRIBUTING.md, PR/issue templates, SECURITY.md (landed early with repo conventions)
-- [ ] Docker image hardening: remove npm/npx/corepack from the runtime stage (Trivy flags HIGH CVEs in the base image's bundled npm; the app never uses it at runtime)
+- [x] Docker image hardening: remove npm/npx/corepack from the runtime stage (Trivy flags HIGH CVEs in the base image's bundled npm; the app never uses it at runtime)
 - [ ] Release `v1.0.0` via release-please (`Release-As: 1.0.0`), publish image
 
 ✅ A stranger can go from README to a running instance with their Discogs collection imported.
