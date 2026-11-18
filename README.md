@@ -62,7 +62,9 @@ configuration stops the server at startup with a message naming the variable.
 | `APP_URL`             | **required**                     | Public URL of the app, e.g. `https://music.example.com`. `https://` ⇒ cookies are marked `Secure`.                                                                         |
 | `AUTH_SECRET`         | **required**                     | At least 32 random characters. Signs sessions. `openssl rand -base64 32`.                                                                                                   |
 | `DATA_DIR`            | `/data` (dev: `./data`)          | Database, cached images (`images/`) and backups (`backups/`).                                                                                                               |
-| `DATABASE_URL`        | `file:${DATA_DIR}/33rpm.db`      | Database connection. SQLite (`file:<path>`) today; PostgreSQL is planned for Phase 0.5.                                                                                     |
+| `DATABASE_URL` | `file:${DATA_DIR}/33rpm.db` | `file:<path>` for SQLite, or `postgres://user:pass@host:5432/db` for PostgreSQL. See [Choosing a database](#choosing-a-database). |
+| `DATABASE_SSL` | follow the URL | PostgreSQL TLS: `true` (encrypt + verify), `require` (encrypt, don't verify), `false`. |
+| `DATABASE_POOL_MAX` | `10` | PostgreSQL connection pool size. |
 | `ENCRYPTION_KEY`      | derived from `AUTH_SECRET`       | At least 32 chars. Encrypts secrets stored in the DB (Discogs token). Changing the key in use means re-entering stored tokens.                                               |
 | `PUID` / `PGID`       | `1000` / `1000`                  | Docker only. The uid/gid the app runs as; `/data` is made owned by it.                                                                                                      |
 | `AUTH_LOCAL_LOGIN`    | `true`                           | Email/password sign-in for local accounts. `false` requires OIDC.                                                                                                           |
@@ -156,6 +158,71 @@ PKCE is always used, and ID tokens are verified against the IdP's published keys
 
 ---
 
+## Choosing a database
+
+33rpm runs on **SQLite** (the default) or **PostgreSQL**, picked by `DATABASE_URL` at startup.
+Both are fully supported and tested in CI.
+
+|                  | SQLite (default)                                   | PostgreSQL                                              |
+| ---------------- | -------------------------------------------------- | ------------------------------------------------------- |
+| Best for         | One container, Raspberry Pi, most self-hosters     | You already run Postgres, or want external backups/HA   |
+| Setup            | Nothing: `file:/data/33rpm.db` is the default      | `docker compose -f docker-compose.postgres.yml up -d`   |
+| Resources        | No extra process                                   | A second container; plan roughly 100–200 MB more RAM on a Pi |
+| Upgrade safety   | Automatic snapshot to `/data/backups` before migrations | Back up with `pg_dump` before upgrading (the app logs a reminder) |
+
+Either way, keep the `/data` volume: cover art, photos and backups live there.
+
+**PostgreSQL quick start:** add `POSTGRES_PASSWORD=<long random string>` to `.env`, then use
+[`docker-compose.postgres.yml`](docker-compose.postgres.yml). It runs `postgres:17` next to the
+app, waits for its healthcheck, and sets `DATABASE_URL` for you. Migrations run automatically on
+startup, guarded by a Postgres advisory lock, so several replicas can start at once safely.
+
+**Backups on PostgreSQL:**
+
+```bash
+docker exec 33rpm-db pg_dump -U 33rpm -Fc 33rpm > 33rpm-$(date +%F).dump
+```
+
+**Switching backends:** an existing library can't be moved between SQLite and PostgreSQL yet.
+An in-app "Import existing library" step and a `db:copy` command are planned for Phase 4. Until
+then, pick one backend for a fresh install.
+
+---
+
+## Recovery
+
+The image includes an admin CLI. Run it with `docker exec`; it drops to `PUID:PGID` itself, so it
+never leaves root-owned files behind:
+
+```bash
+docker exec -it 33rpm 33rpm help
+```
+
+**Locked out?** Reset a password. You're prompted for the new one; `--generate` prints a random
+temporary password instead. Either way, all of that user's sessions are signed out, and an
+SSO-only user gets a password login.
+
+```bash
+docker exec -it 33rpm 33rpm reset-password you@example.com
+```
+
+```bash
+docker exec 33rpm 33rpm reset-password you@example.com --generate
+```
+
+**Lost the first-run setup code?** Print a fresh one. This only works while no users exist; any
+earlier code stops working.
+
+```bash
+docker exec 33rpm 33rpm create-setup-code
+```
+
+From source, use `npm run build:cli` then `node dist/cli.js <command>` with the same environment
+as the server. The CLI works on both SQLite and PostgreSQL, and expects the server to have started
+at least once (so the database is migrated).
+
+---
+
 ## Upgrading & backups
 
 Pull the new image and restart. Database migrations run automatically on startup. If the
@@ -184,9 +251,25 @@ npm run dev             # http://localhost:3000; the setup code prints in this t
 | `npm run build`       | Production build (`.next/standalone`).                                                 |
 | `npm run lint`        | ESLint + Prettier check (`npm run format` to fix).                                     |
 | `npm run typecheck`   | Route type generation + `tsc --noEmit`.                                                |
-| `npm test`            | Vitest unit and integration tests.                                                     |
+| `npm test`            | Vitest unit tests + integration tests (SQLite by default).                             |
+| `npm run test:integration` | Integration tests only. Set `TEST_DATABASE_URL=postgres://…` to run them on PostgreSQL. |
+| `npm run build:cli`   | Bundle the admin CLI to `dist/cli.js`.                                                 |
 | `npm run test:e2e`    | Playwright smoke test against the production build (run `npm run build` first).       |
-| `npm run db:generate` | Generate a migration after changing `src/db/schema`. Migrations are committed.         |
+| `npm run db:generate` | Generate migrations for **both** dialects after changing `src/db/schema/{sqlite,pg}`. Migrations are committed. |
+
+PostgreSQL integration tests locally:
+
+```bash
+docker compose -f docker-compose.test.yml up -d
+```
+
+```bash
+TEST_DATABASE_URL=postgres://test:test@127.0.0.1:54329/test npm run test:integration
+```
+
+Schema changes go in **both** trees (`src/db/schema/sqlite` and `src/db/schema/pg`) and both
+migration folders; a unit test fails if they drift. See
+[docs/addendum-01-postgres-support.md](docs/addendum-01-postgres-support.md).
 
 Notes:
 
