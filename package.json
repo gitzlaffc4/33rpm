@@ -16,7 +16,8 @@
     "db:studio": "drizzle-kit studio --config drizzle.sqlite.config.ts",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
-    "build:cli": "esbuild src/cli.ts --bundle --platform=node --target=node26 --format=cjs --outfile=dist/cli.js --external:better-sqlite3 --external:pg --external:pg-native --log-level=warning"
+    "build:cli": "esbuild src/cli.ts --bundle --platform=node --target=node26 --format=cjs --outfile=dist/cli.js --external:better-sqlite3 --external:pg --external:pg-native --log-level=warning",
+    "db:seed": "esbuild scripts/seed.ts --bundle --platform=node --target=node26 --format=cjs --outfile=dist/seed.js --external:better-sqlite3 --external:pg --external:pg-native --external:sharp --alias:server-only=./tests/stubs/server-only.ts --log-level=warning && node --env-file-if-exists=.env dist/seed.js"
   },
   "dependencies": {
     "@radix-ui/react-label": "2.1.17",
