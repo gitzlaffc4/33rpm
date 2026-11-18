@@ -125,6 +125,10 @@ jobs:
         env:
           TRIVY_USERNAME: ${{ github.actor }}
           TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          # With SBOM/provenance attached, the pushed digest is an index (image +
+          # attestation manifests). Trivy defaults to linux/amd64 when resolving an
+          # index, so name the platform this job built.
+          TRIVY_PLATFORM: ${{ matrix.platform }}
         with:
           image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
           severity: CRITICAL
