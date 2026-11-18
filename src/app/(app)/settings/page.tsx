@@ -11,7 +11,7 @@ import { getAuth, LOCAL_PROVIDER_ID, OIDC_PROVIDER_ID } from "@/lib/auth";
 import { authErrorMessage } from "@/lib/auth-errors";
 import { discogsTokenStatus } from "@/lib/discogs-token";
 import { getCurrentSession, requireUser } from "@/lib/session";
-import { getUserSettings } from "@/lib/user-settings";
+import { getUserSettings } from "@/db/repos/settings";
 import { AboutSection } from "./about-section";
 import { DiscogsSection } from "./discogs-section";
 import { PreferencesSection } from "./preferences-section";
@@ -63,7 +63,7 @@ async function SettingsContent({ searchParams }: Pick<PageProps<"/settings">, "s
     auth.api.listSessions({ headers: h }),
     getCurrentSession(),
   ]);
-  const settings = getUserSettings(user.id);
+  const settings = await getUserSettings(user.id);
   const providers = new Set(accounts.map((a) => a.providerId));
   const hasPassword = providers.has(LOCAL_PROVIDER_ID);
   const ssoLinked = providers.has(OIDC_PROVIDER_ID);
@@ -120,7 +120,7 @@ async function SettingsContent({ searchParams }: Pick<PageProps<"/settings">, "s
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DiscogsSection status={discogsTokenStatus(user.id)} />
+          <DiscogsSection status={await discogsTokenStatus(user.id)} />
         </CardContent>
       </Card>
 

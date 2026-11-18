@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/session";
-import { getUserSettings } from "@/lib/user-settings";
+import { getUserSettings } from "@/db/repos/settings";
 import { SignOutButton } from "./sign-out-button";
 import { ThemeSync } from "./theme-sync";
 
@@ -9,7 +9,7 @@ import { ThemeSync } from "./theme-sync";
  */
 export async function UserBadge() {
   const user = await requireUser();
-  const settings = getUserSettings(user.id);
+  const settings = await getUserSettings(user.id);
   return (
     <div className="flex items-center gap-2">
       <ThemeSync theme={settings.theme} />

@@ -1,9 +1,8 @@
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 
-import { count, eq } from "drizzle-orm";
-
-import type { Db } from "@/db";
-import { appState, user } from "@/db/schema";
+import { getDb, type DbHandle } from "@/db";
+import { consumeAppState, deleteAppState, getAppState, setAppState } from "@/db/repos/app-state";
+import { countUsers } from "@/db/repos/users";
 
 /**
  * First-run setup code.
@@ -33,36 +32,30 @@ function hash(code: string): string {
   return createHash("sha256").update(normalizeSetupCode(code)).digest("hex");
 }
 
-export function userCount(db: Db): number {
-  return db.select({ n: count() }).from(user).get()?.n ?? 0;
-}
-
-export function needsSetup(db: Db): boolean {
-  return userCount(db) === 0;
+export async function needsSetup(h: DbHandle = getDb()): Promise<boolean> {
+  return (await countUsers(h)) === 0;
 }
 
 /**
- * Called on startup. Returns a new plaintext code if setup is needed (caller logs
- * it), or null if an admin already exists (any stale code is removed).
+ * Called on startup (and by the `create-setup-code` CLI). Returns a new plaintext
+ * code if setup is needed (the caller prints it), or null if a user already
+ * exists, in which case any stale code is removed.
  */
-export function issueSetupCodeIfNeeded(db: Db): string | null {
-  if (!needsSetup(db)) {
-    db.delete(appState).where(eq(appState.key, KEY)).run();
+export async function issueSetupCodeIfNeeded(h: DbHandle = getDb()): Promise<string | null> {
+  if (!(await needsSetup(h))) {
+    await deleteAppState(KEY, h);
     return null;
   }
   const code = generateSetupCode();
-  db.insert(appState)
-    .values({ key: KEY, value: hash(code) })
-    .onConflictDoUpdate({ target: appState.key, set: { value: hash(code), updatedAt: new Date() } })
-    .run();
+  await setAppState(KEY, hash(code), h);
   return code;
 }
 
 /** Constant-time check without consuming the code. */
-export function verifySetupCode(db: Db, code: string): boolean {
-  const row = db.select().from(appState).where(eq(appState.key, KEY)).get();
-  if (!row) return false;
-  const a = Buffer.from(row.value, "hex");
+export async function verifySetupCode(code: string, h: DbHandle = getDb()): Promise<boolean> {
+  const stored = await getAppState(KEY, h);
+  if (!stored) return false;
+  const a = Buffer.from(stored, "hex");
   const b = Buffer.from(hash(code), "hex");
   return a.length === b.length && timingSafeEqual(a, b);
 }
@@ -71,14 +64,9 @@ export function verifySetupCode(db: Db, code: string): boolean {
  * Atomically verify and delete the code. Only one caller can ever succeed, which
  * prevents two concurrent setup submissions from both creating admins.
  */
-export function consumeSetupCode(db: Db, code: string): boolean {
-  if (!verifySetupCode(db, code)) return false;
-  const deleted = db
-    .delete(appState)
-    .where(eq(appState.key, KEY))
-    .returning({ key: appState.key })
-    .all();
-  return deleted.length === 1;
+export async function consumeSetupCode(code: string, h: DbHandle = getDb()): Promise<boolean> {
+  if (!(await verifySetupCode(code, h))) return false;
+  return consumeAppState(KEY, hash(code), h);
 }
 
 export function formatSetupBanner(code: string, appUrl: string): string {
