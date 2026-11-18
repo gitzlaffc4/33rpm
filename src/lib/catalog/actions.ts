@@ -19,7 +19,7 @@ import {
   updateCopy,
   type CopyInput,
 } from "@/db/repos/catalog";
-import { parseCopyForm, type CopyForm } from "@/lib/catalog/copy-form";
+import { parseCopyForm, pickFields, type CopyForm } from "@/lib/catalog/copy-form";
 import { FORMAT_ORDER } from "@/lib/catalog/format";
 import { ensureProviderRelease, removeImageFiles } from "@/lib/catalog/service";
 import { storeImage } from "@/lib/images";
@@ -190,9 +190,9 @@ function parseTracklist(text: string) {
 /** Manual entry for items no provider knows about, with an optional cover upload. */
 export async function createManualEntry(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
-  const raw: Record<string, string> = {};
-  for (const [k, v] of formData) if (typeof v === "string") raw[k] = v;
-  const parsed = ManualSchema.safeParse(raw);
+  const parsed = ManualSchema.safeParse(
+    pickFields(formData, Object.keys(ManualSchema.shape) as (keyof typeof ManualSchema.shape)[]),
+  );
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     return { error: issue?.message ?? "Invalid input", field: String(issue?.path[0] ?? "") };

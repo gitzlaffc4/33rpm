@@ -49,10 +49,32 @@ export const CopyFormSchema = z
 
 export type CopyForm = z.output<typeof CopyFormSchema>;
 
+const COPY_FIELDS = [
+  "mediaCondition",
+  "sleeveCondition",
+  "price",
+  "currency",
+  "acquiredOn",
+  "source",
+  "locationId",
+  "newLocation",
+  "notes",
+  "rating",
+  "tags",
+] as const;
+
+/** Only the named string fields of a form (never arbitrary user-chosen keys). */
+export function pickFields<K extends string>(formData: FormData, keys: readonly K[]) {
+  return Object.fromEntries(
+    keys.map((k) => {
+      const v = formData.get(k);
+      return [k, typeof v === "string" ? v : undefined];
+    }),
+  ) as Record<K, string | undefined>;
+}
+
 export function parseCopyForm(formData: FormData) {
-  const raw: Record<string, string> = {};
-  for (const [k, v] of formData) if (typeof v === "string") raw[k] = v;
-  const parsed = CopyFormSchema.safeParse(raw);
+  const parsed = CopyFormSchema.safeParse(pickFields(formData, COPY_FIELDS));
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     return {

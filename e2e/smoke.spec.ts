@@ -174,7 +174,7 @@ test.describe("signed in", () => {
 
     await page.goto(`/library?q=${encodeURIComponent("basement tapes")}`);
     await expect(
-      page.getByRole("link", { name: new RegExp(title.replace(/[()]/g, "\\$&")) }),
+      page.getByRole("link", { name: new RegExp(title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) }),
     ).toBeVisible();
     await page.goto("/library?view=locations");
     await expect(
