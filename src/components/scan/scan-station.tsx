@@ -9,10 +9,13 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { CheckResult } from "@/lib/catalog/check";
 import { dismissScan, queueScan, retryScan } from "@/lib/catalog/scan-actions";
+import { checkScannedBarcode } from "@/lib/catalog/wishlist-actions";
 import type { ScanView } from "@/lib/catalog/scan-view";
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "./barcode-scanner";
+import { CheckResultCard } from "./check-result";
 
 const STATUS: Record<ScanView["status"], { label: string; className: string }> = {
   pending: { label: "Looking up…", className: "text-muted-foreground" },
@@ -39,7 +42,12 @@ function thumb(item: ScanView) {
   return null;
 }
 
-export function ScanStation({ crate }: { crate: boolean }) {
+export type ScanMode = "single" | "crate" | "check";
+
+export function ScanStation({ mode, wish }: { mode: ScanMode; wish?: string }) {
+  const crate = mode === "crate";
+  const [checks, setChecks] = useState<CheckResult[]>([]);
+  const [checking, setChecking] = useState(0);
   const router = useRouter();
   const [items, setItems] = useState<ScanView[]>([]);
   const [manual, setManual] = useState("");
@@ -77,8 +85,18 @@ export function ScanStation({ crate }: { crate: boolean }) {
     async (code: string) => {
       const clean = code.replace(/\D/g, "");
       if (!clean) return;
+      if (mode === "check") {
+        setChecking((n) => n + 1);
+        try {
+          const result = await checkScannedBarcode(clean);
+          setChecks((list) => [result, ...list.filter((x) => x.barcode !== clean)].slice(0, 10));
+        } finally {
+          setChecking((n) => n - 1);
+        }
+        return;
+      }
       if (!crate) {
-        router.push(`/add?q=${clean}&mode=barcode`);
+        router.push(`/add?q=${clean}&mode=barcode${wish ? `&wish=${wish}` : ""}`);
         return;
       }
       const res = await queueScan(clean);
@@ -89,7 +107,7 @@ export function ScanStation({ crate }: { crate: boolean }) {
       setMessage(`Queued ${clean}`);
       poll();
     },
-    [crate, poll, router],
+    [crate, mode, poll, router, wish],
   );
 
   const counts = {
@@ -102,31 +120,36 @@ export function ScanStation({ crate }: { crate: boolean }) {
   return (
     <div className="space-y-6">
       <div className="flex rounded-lg border p-1" role="group" aria-label="Scan mode">
-        {[
-          [false, "Single", "/scan"],
-          [true, "Crate mode", "/scan?mode=crate"],
-        ].map(([isCrate, label, href]) => (
+        {(
+          [
+            ["single", "Single", "/scan"],
+            ["crate", "Crate", "/scan?mode=crate"],
+            ["check", "In-store check", "/scan?mode=check"],
+          ] as const
+        ).map(([m, label, href]) => (
           <Link
-            key={String(label)}
-            href={href as string}
+            key={m}
+            href={href}
             replace
-            aria-current={crate === isCrate ? "page" : undefined}
+            aria-current={mode === m ? "page" : undefined}
             className={cn(
-              "flex-1 rounded-md px-3 py-1.5 text-center text-sm font-medium text-muted-foreground",
-              crate === isCrate && "bg-secondary text-foreground",
+              "flex-1 rounded-md px-2 py-1.5 text-center text-sm font-medium text-muted-foreground",
+              mode === m && "bg-secondary text-foreground",
             )}
           >
-            {label as string}
+            {label}
           </Link>
         ))}
       </div>
       <p className="text-sm text-muted-foreground">
-        {crate
+        {mode === "crate"
           ? "Scan one item after another; lookups run in the background. Review and add them all at the end."
-          : "Scan a barcode to search for it."}
+          : mode === "check"
+            ? "Scan anything in a store to see whether you own it, want it, or it's new."
+            : "Scan a barcode to search for it."}
       </p>
 
-      <BarcodeScanner continuous={crate} onDetect={(code) => void submit(code)} />
+      <BarcodeScanner continuous={mode !== "single"} onDetect={(code) => void submit(code)} />
 
       <form
         className="flex items-end gap-2"
@@ -149,12 +172,25 @@ export function ScanStation({ crate }: { crate: boolean }) {
           />
         </div>
         <Button type="submit" variant="secondary">
-          {crate ? "Queue" : "Search"}
+          {crate ? "Queue" : mode === "check" ? "Check" : "Search"}
         </Button>
       </form>
       <p role="status" aria-live="polite" className="sr-only">
         {message}
       </p>
+
+      {mode === "check" && (
+        <section aria-label="Check results" className="space-y-3">
+          {checking > 0 && (
+            <p role="status" className="text-sm text-muted-foreground">
+              Checking…
+            </p>
+          )}
+          {checks.map((r) => (
+            <CheckResultCard key={r.barcode} r={r} />
+          ))}
+        </section>
+      )}
 
       {crate && (
         <section aria-labelledby="queue-heading" className="space-y-3">

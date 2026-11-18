@@ -8,6 +8,8 @@ import { ProviderAttribution } from "@/components/catalog/attribution";
 import { CopyForm } from "@/components/catalog/copy-form";
 import { Cover } from "@/components/catalog/cover";
 import { Tracklist } from "@/components/catalog/tracklist";
+import { WantButtons } from "@/components/catalog/want-buttons";
+import { wantProviderRelease } from "@/lib/catalog/wishlist-actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +23,10 @@ import { requireUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Add release" };
 
-export default function AddReleasePage({ params }: PageProps<"/add/[provider]/[id]">) {
+export default function AddReleasePage({
+  params,
+  searchParams,
+}: PageProps<"/add/[provider]/[id]">) {
   return (
     <>
       <Button asChild variant="ghost" size="sm" className="-ml-2">
@@ -32,17 +37,19 @@ export default function AddReleasePage({ params }: PageProps<"/add/[provider]/[i
       <Suspense
         fallback={<div className="h-96 animate-pulse rounded-xl bg-muted/40" aria-busy="true" />}
       >
-        <AddRelease params={params} />
+        <AddRelease params={params} searchParams={searchParams} />
       </Suspense>
     </>
   );
 }
 
-async function AddRelease({ params }: Pick<PageProps<"/add/[provider]/[id]">, "params">) {
+async function AddRelease({ params, searchParams }: PageProps<"/add/[provider]/[id]">) {
   const user = await requireUser();
   const { provider, id } = await params;
   if (provider !== "discogs" && provider !== "musicbrainz") notFound();
   const providerId = decodeURIComponent(id);
+  const { wish } = await searchParams;
+  const wishId = typeof wish === "string" ? wish : undefined;
 
   let detail;
   try {
@@ -130,6 +137,12 @@ async function AddRelease({ params }: Pick<PageProps<"/add/[provider]/[id]">, "p
             <Tracklist tracks={detail.tracklist} />
           </div>
         </details>
+        {!wishId && (
+          <WantButtons
+            wantRelease={wantProviderRelease.bind(null, provider, providerId, "release")}
+            wantMaster={wantProviderRelease.bind(null, provider, providerId, "master")}
+          />
+        )}
         <ProviderAttribution providers={[provider]} />
       </div>
 
@@ -174,6 +187,7 @@ async function AddRelease({ params }: Pick<PageProps<"/add/[provider]/[id]">, "p
             locations={locations}
             defaultCurrency={settings.defaultCurrency}
             submitLabel={existingId && ownedCopies ? "Add another copy" : "Add to collection"}
+            hidden={{ wishId }}
           />
         </section>
       </div>

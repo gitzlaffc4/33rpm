@@ -69,10 +69,12 @@ async function ManualEntry({ searchParams }: Pick<PageProps<"/add/manual">, "sea
   ]);
   const title = master?.master.title ?? (typeof p.title === "string" ? p.title : "");
   const barcode = typeof p.barcode === "string" ? p.barcode : "";
+  const wishId = typeof p.wish === "string" ? p.wish : undefined;
 
   return (
     <CopyForm
       action={createManualEntry}
+      hidden={{ wishId }}
       locations={locations}
       defaultCurrency={settings.defaultCurrency}
       submitLabel="Add to collection"

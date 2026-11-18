@@ -25,6 +25,7 @@ import { ensureProviderRelease, removeImageFiles } from "@/lib/catalog/service";
 import { storeImage } from "@/lib/images";
 import { ProviderError } from "@/lib/providers/http";
 import { requireUser } from "@/lib/session";
+import { markAcquired } from "@/db/repos/wishlist";
 
 export type FormState = { ok?: string; error?: string; field?: string };
 
@@ -44,6 +45,12 @@ async function toCopyInput(userId: string, f: CopyForm): Promise<CopyInput> {
     rating: f.rating,
     tags: f.tags,
   };
+}
+
+/** "Got it" from the wishlist: the copy form carries the wishlist item id. */
+async function fulfilWish(userId: string, formData: FormData, copyId: string) {
+  const wishId = formData.get("wishId");
+  if (typeof wishId === "string" && wishId) await markAcquired(userId, wishId, copyId);
 }
 
 function providerMessage(e: unknown) {
@@ -70,6 +77,7 @@ export async function addCopyFromProvider(
     return { error: providerMessage(e) };
   }
   const copyId = await createCopy(user.id, releaseId, await toCopyInput(user.id, form.data));
+  await fulfilWish(user.id, formData, copyId);
   const release = await getReleaseSummary(releaseId);
   redirect(`/album/${release!.masterId}?added=${copyId}`);
 }
@@ -86,6 +94,7 @@ export async function addCopyToRelease(
   const release = await getReleaseSummary(releaseId);
   if (!release) return { error: "That release no longer exists." };
   const copyId = await createCopy(user.id, releaseId, await toCopyInput(user.id, form.data));
+  await fulfilWish(user.id, formData, copyId);
   redirect(`/album/${release.masterId}?added=${copyId}`);
 }
 
@@ -235,6 +244,7 @@ export async function createManualEntry(_prev: FormState, formData: FormData): P
     cover,
   );
   const copyId = await createCopy(user.id, releaseId, await toCopyInput(user.id, copy.data));
+  await fulfilWish(user.id, formData, copyId);
   redirect(`/album/${masterId}?added=${copyId}`);
 }
 
