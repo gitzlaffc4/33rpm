@@ -1,0 +1,80 @@
+name: Release
+
+# On every push to main:
+# - release-please maintains the Release PR; when that PR is merged it tags vX.Y.Z
+#   and creates the GitHub release.
+# - Tags created with GITHUB_TOKEN don't trigger other workflows, so the release
+#   image is built and published here, gated on `release_created`.
+# - Every push also publishes the `edge` image.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    name: release-please
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    concurrency:
+      group: release-please
+      cancel-in-progress: false
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      version: ${{ steps.release.outputs.version }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # release-please only marks a release as a pre-release when its global
+      # `prerelease` option is on, which would also flag every 0.x release. Mark
+      # versions with a pre-release suffix (e.g. 0.3.0-alpha.1) here instead.
+      - name: Mark pre-release
+        if: ${{ steps.release.outputs.release_created == 'true' && contains(steps.release.outputs.version, '-') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease --latest=false
+
+  publish-release:
+    name: Publish release image
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      security-events: write
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      ref: ${{ needs.release-please.outputs.sha }}
+      channel: ${{ contains(needs.release-please.outputs.version, '-') && 'prerelease' || 'stable' }}
+      version: ${{ needs.release-please.outputs.version }}
+
+  publish-edge:
+    name: Publish edge image
+    concurrency:
+      group: edge-image
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      security-events: write
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      ref: ${{ github.sha }}
+      channel: edge

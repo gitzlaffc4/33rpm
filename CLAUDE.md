@@ -106,6 +106,24 @@ interface MetadataProvider {
 
 ---
 
+## Git conventions
+
+Full details in `CONTRIBUTING.md`. Follow these in every session:
+
+- **Branches:** `<type>/<short-kebab-desc>` with types `feat`, `fix`, `chore`, `docs`, `refactor`,
+  `test`, `ci`, `deps`, `perf`. Phase work: `feat/phase-<n>-<slug>`. If the environment forces a
+  prefix (e.g. `claude/`), keep it and append the conventional part: `claude/feat-phase-0.5-dual-db`.
+- **Commits:** Conventional Commits 1.0, scopes where useful (`db`, `auth`, `ui`, `docker`, `ci`,
+  `deps`, `providers`, …). Breaking changes use `!` plus a `BREAKING CHANGE:` footer.
+- **PRs:** squash-merge only; the PR title becomes the commit on `main`, so it must be a
+  Conventional Commit. Put `BREAKING CHANGE:` / `Release-As:` footers in the PR description.
+- **Versions:** never bump `package.json` or edit `CHANGELOG.md` by hand; release-please owns both.
+- **Workflows:** top-level `permissions: contents: read`; pin third-party actions to full commit
+  SHAs with a `# vX.Y.Z` comment; add concurrency groups. Hooks aren't used (`ignore-scripts`);
+  CI enforces commitlint and PR titles.
+
+---
+
 ## How to work
 
 1. Read `ROADMAP.md` and work on the **current phase only**.

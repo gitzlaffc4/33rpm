@@ -28,7 +28,8 @@ test.describe("first run", () => {
   test("health endpoint reports ok", async ({ request }) => {
     const res = await request.get("/api/health");
     expect(res.ok()).toBe(true);
-    expect(await res.json()).toMatchObject({ status: "ok", db: "ok" });
+    const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")) as { version: string };
+    expect(await res.json()).toMatchObject({ status: "ok", db: "ok", version: pkg.version });
   });
 
   test("setup requires the code, creates the admin, and lands in the app", async ({
@@ -97,6 +98,11 @@ test.describe("signed in", () => {
 
     await page.goto("/settings");
     await expect(page.getByRole("heading", { name: "Profile", exact: true })).toBeVisible();
+    const pkg = JSON.parse(fs.readFileSync("package.json", "utf8")) as { version: string };
+    await expect(page.getByRole("heading", { name: "About", exact: true })).toBeVisible();
+    await expect(
+      page.getByText(pkg.version, { exact: true }).filter({ visible: true }),
+    ).toBeVisible();
     await page.getByLabel("Personal access token").fill("abcdefghijklmnopqrstuvwxyz0123456789ABCD");
     await page.getByRole("button", { name: "Save token" }).click();
     await expect(page.getByText("Discogs token saved.").filter({ visible: true })).toBeVisible();

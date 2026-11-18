@@ -12,6 +12,7 @@ import { authErrorMessage } from "@/lib/auth-errors";
 import { discogsTokenStatus } from "@/lib/discogs-token";
 import { getCurrentSession, requireUser } from "@/lib/session";
 import { getUserSettings } from "@/lib/user-settings";
+import { AboutSection } from "./about-section";
 import { DiscogsSection } from "./discogs-section";
 import { PreferencesSection } from "./preferences-section";
 import { ProfileSection } from "./profile-section";
@@ -26,6 +27,16 @@ export default function SettingsPage({ searchParams }: PageProps<"/settings">) {
       <Suspense fallback={<SettingsSkeleton />}>
         <SettingsContent searchParams={searchParams} />
       </Suspense>
+      {/* Build info is static, so it's part of the prerendered shell. */}
+      <Card>
+        <CardHeader>
+          <CardTitle>About</CardTitle>
+          <CardDescription>33rpm build information.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AboutSection />
+        </CardContent>
+      </Card>
     </>
   );
 }

@@ -1,7 +1,8 @@
-name: Release image
+name: Release image (manual tag)
 
-# Builds linux/amd64 and linux/arm64 natively on separate runners (no QEMU),
-# pushes each by digest, then merges them into one multi-arch manifest on GHCR.
+# Manual path: pushing a vX.Y.Z (or vX.Y.Z-alpha.N) tag that matches package.json.
+# Tags created by release-please use GITHUB_TOKEN and therefore never trigger this
+# workflow; release-please.yml publishes those itself.
 
 on:
   push:
@@ -10,27 +11,38 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-tag-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
-  REGISTRY: ghcr.io
   NEXT_TELEMETRY_DISABLED: 1
 
 jobs:
-  check:
+  verify:
     name: Verify
     runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      channel: ${{ steps.version.outputs.channel }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
-      - name: Tag matches package.json version
+      - name: Tag matches package.json
+        id: version
         run: |
           pkg="$(node -p "require('./package.json').version")"
           if [ "v$pkg" != "$GITHUB_REF_NAME" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $pkg"
             exit 1
           fi
+          echo "version=$pkg" >> "$GITHUB_OUTPUT"
+          case "$pkg" in *-*) echo "channel=prerelease" ;; *) echo "channel=stable" ;; esac >> "$GITHUB_OUTPUT"
       - run: npm ci
       - name: Verify better-sqlite3 native binding
         run: node -e "const D=require('better-sqlite3'); console.log('SQLite', new D(':memory:').prepare('select sqlite_version() v').get().v)"
@@ -38,114 +50,17 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
-  build:
-    name: Build ${{ matrix.platform }}
-    needs: check
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - platform: linux/amd64
-            runner: ubuntu-24.04
-          - platform: linux/arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
+  publish:
+    name: Publish image
+    needs: verify
     permissions:
       contents: read
       packages: write
-    steps:
-      - name: Prepare
-        run: |
-          echo "IMAGE=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-          platform='${{ matrix.platform }}'
-          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
-
-      - uses: actions/checkout@v5
-
-      - name: Image metadata (labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE }}
-
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Build and push by digest
-        id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: ${{ matrix.platform }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VERSION=${{ github.ref_name }}
-            REVISION=${{ github.sha }}
-          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=release-${{ env.PLATFORM_PAIR }}
-          cache-to: type=gha,mode=max,scope=release-${{ env.PLATFORM_PAIR }}
-
-      - name: Export digest
-        run: |
-          mkdir -p "${{ runner.temp }}/digests"
-          digest='${{ steps.build.outputs.digest }}'
-          touch "${{ runner.temp }}/digests/${digest#sha256:}"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: digests-${{ env.PLATFORM_PAIR }}
-          path: ${{ runner.temp }}/digests/*
-          if-no-files-found: error
-          retention-days: 1
-
-  merge:
-    name: Publish multi-arch manifest
-    needs: build
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Prepare
-        run: echo "IMAGE=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-
-      - uses: actions/download-artifact@v4
-        with:
-          path: ${{ runner.temp }}/digests
-          pattern: digests-*
-          merge-multiple: true
-
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Image tags
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE }}
-          # vX.Y.Z -> X.Y.Z, X.Y, X and latest (latest is skipped for pre-releases).
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-          flavor: latest=auto
-
-      - name: Create manifest list and push
-        working-directory: ${{ runner.temp }}/digests
-        run: |
-          docker buildx imagetools create \
-            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf "${IMAGE}@sha256:%s " *)
-
-      - name: Inspect
-        run: docker buildx imagetools inspect "${IMAGE}:${{ steps.meta.outputs.version }}"
+      id-token: write
+      attestations: write
+      security-events: write
+    uses: ./.github/workflows/_build-image.yml
+    with:
+      ref: ${{ github.sha }}
+      channel: ${{ needs.verify.outputs.channel }}
+      version: ${{ needs.verify.outputs.version }}

@@ -1,0 +1,225 @@
+name: Build image
+
+# Reusable workflow: builds linux/amd64 and linux/arm64 natively (no QEMU), scans
+# each platform image with Trivy before anything is tagged, merges them into one
+# multi-arch manifest on GHCR, and attests build provenance.
+#
+# Callers must grant: contents: read, packages: write, id-token: write,
+# attestations: write, security-events: write.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref or SHA to build.
+        type: string
+        required: true
+      channel:
+        description: "stable | prerelease | edge"
+        type: string
+        required: true
+      version:
+        description: Release version without the leading v (required unless channel is edge).
+        type: string
+        required: false
+        default: ""
+    outputs:
+      digest:
+        description: Digest of the published multi-arch manifest.
+        value: ${{ jobs.merge.outputs.digest }}
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  NEXT_TELEMETRY_DISABLED: 1
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    steps:
+      - name: Validate inputs
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          case "$CHANNEL" in
+            stable|prerelease) [ -n "$VERSION" ] || { echo "::error::version is required for $CHANNEL"; exit 1; } ;;
+            edge) ;;
+            *) echo "::error::unknown channel '$CHANNEL'"; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Prepare
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ inputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          pkg_version="$(node -p "require('./package.json').version")"
+          if [ "$CHANNEL" != "edge" ] && [ "$pkg_version" != "$VERSION" ]; then
+            echo "::error::Release version $VERSION does not match package.json ($pkg_version)"
+            exit 1
+          fi
+          {
+            echo "IMAGE=${REGISTRY}/${GITHUB_REPOSITORY,,}"
+            echo "PLATFORM_PAIR=${PLATFORM//\//-}"
+            echo "PKG_VERSION=${pkg_version}"
+            echo "REVISION=$(git rev-parse HEAD)"
+          } >> "$GITHUB_ENV"
+
+      - name: Image labels
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          labels: |
+            org.opencontainers.image.version=${{ env.PKG_VERSION }}
+            org.opencontainers.image.revision=${{ env.REVISION }}
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ env.PKG_VERSION }}
+            REVISION=${{ env.REVISION }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          sbom: true
+          provenance: mode=max
+          cache-from: type=gha,scope=image-${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=image-${{ env.PLATFORM_PAIR }}
+
+      # Scan the untagged per-platform image before anything is published under a tag.
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: sarif
+          output: trivy.sarif
+          limit-severities-for-sarif: true
+
+      - name: Upload Trivy results
+        if: ${{ always() && hashFiles('trivy.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-image-${{ env.PLATFORM_PAIR }}
+
+      - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "${RUNNER_TEMP}/digests"
+          touch "${RUNNER_TEMP}/digests/${DIGEST#sha256:}"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Publish multi-arch manifest
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    outputs:
+      digest: ${{ steps.digest.outputs.digest }}
+    steps:
+      - name: Prepare
+        run: echo "IMAGE=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # stable:     X.Y.Z, X.Y, X, latest
+      # prerelease: X.Y.Z-alpha.N only (semver patterns only extend {{version}})
+      # edge:       edge, sha-<short>
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}},value=v${{ inputs.version }},enable=${{ inputs.channel != 'edge' }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ inputs.version }},enable=${{ inputs.channel == 'stable' }}
+            type=semver,pattern={{major}},value=v${{ inputs.version }},enable=${{ inputs.channel == 'stable' }}
+            type=raw,value=latest,enable=${{ inputs.channel == 'stable' }}
+            type=raw,value=edge,enable=${{ inputs.channel == 'edge' }}
+            type=sha,prefix=sha-,format=short,enable=${{ inputs.channel == 'edge' }}
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "${IMAGE}@sha256:%s " *)
+
+      - name: Resolve manifest digest
+        id: digest
+        env:
+          TAG: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+        run: |
+          digest="$(docker buildx imagetools inspect "$TAG" --format '{{json .Manifest}}' | jq -r '.digest')"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          docker buildx imagetools inspect "$TAG"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.digest.outputs.digest }}
+          push-to-registry: true
