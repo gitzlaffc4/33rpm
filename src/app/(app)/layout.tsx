@@ -1,3 +1,4 @@
+import { Search } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 
@@ -9,6 +10,7 @@ import {
 } from "@/components/app-shell/app-nav";
 import { UserBadge, UserBadgeSkeleton } from "@/components/app-shell/user-badge";
 import { Logo } from "@/components/logo";
+import { SearchShortcut } from "@/components/search/search-shortcut";
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
@@ -23,6 +25,13 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       <aside className="sticky top-0 hidden h-dvh flex-col gap-6 border-r bg-sidebar p-4 md:flex">
         <Link href="/library" className="px-2 py-1" aria-label="33rpm home">
           <Logo className="text-lg" />
+        </Link>
+        <Link
+          href="/search"
+          className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <Search className="size-4" aria-hidden /> Search
+          <kbd className="ml-auto text-xs">/</kbd>
         </Link>
         <Suspense fallback={<SidebarNavList pathname="" />}>
           <SidebarNav />
@@ -39,6 +48,13 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
           <Link href="/library" aria-label="33rpm home">
             <Logo />
           </Link>
+          <Link
+            href="/search"
+            aria-label="Search"
+            className="-mr-2 ml-auto p-2 text-muted-foreground"
+          >
+            <Search className="size-5" aria-hidden />
+          </Link>
         </header>
         <main
           id="main"
@@ -48,6 +64,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         </main>
       </div>
 
+      <SearchShortcut />
       <Suspense fallback={<MobileTabBarList pathname="" />}>
         <MobileTabBar />
       </Suspense>
