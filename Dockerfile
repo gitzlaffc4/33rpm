@@ -22,7 +22,7 @@ FROM base AS build
 ARG REVISION=unknown
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN APP_COMMIT="${REVISION}" npm run build && npm run build:cli
+RUN APP_COMMIT="${REVISION}" npm run build && npm run build:cli && npm run build:bench
 # Fail the build (on each architecture) unless better-sqlite3's prebuilt binary for
 # this platform is in the standalone output and actually loads. No compile step
 # exists: the binary ships inside the npm package (see .npmrc).
@@ -51,13 +51,16 @@ ENV NODE_ENV=production \
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 COPY --from=build --chown=node:node /app/public ./public
-COPY --from=build --chown=node:node /app/dist/cli.js ./dist/cli.js
+COPY --from=build --chown=node:node /app/dist/cli.js /app/dist/bench.js ./dist/
 COPY --chmod=0755 scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 # Admin CLI: `docker exec -it 33rpm 33rpm help` (see README → Recovery).
 COPY --chmod=0755 scripts/33rpm-cli.sh /usr/local/bin/33rpm
 
 # Next's runtime cache must be writable by whatever PUID the app ends up running as.
-RUN mkdir -p /data .next/cache && chown node:node /data && chmod 1777 .next/cache
+# The app never uses npm/npx/corepack at runtime: remove them (and their CVEs) from the image.
+RUN mkdir -p /data .next/cache && chown node:node /data && chmod 1777 .next/cache \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+           /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /root/.npm
 
 VOLUME ["/data"]
 EXPOSE 3000
