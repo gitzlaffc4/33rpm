@@ -84,7 +84,8 @@ export async function storeImage(
 export async function downloadCover(url: string | null): Promise<StoredImage | null> {
   if (!url || !isAllowedImageUrl(url)) return null;
   try {
-    const provider = new URL(url).hostname === "i.discogs.com" ? "discogs" : "coverart";
+    // Image CDNs (incl. i.discogs.com) don't count against API rate limits.
+    const provider = "coverart";
     const { bytes } = await fetchBytes(url, { provider, allowUrl: isAllowedImageUrl });
     return await storeImage(bytes, { kind: "cover", sourceUrl: url });
   } catch (e) {
@@ -111,7 +112,8 @@ export async function remoteThumbnail(url: string): Promise<Buffer | null> {
   } catch {}
   await fs.mkdir(path.dirname(file), { recursive: true });
   try {
-    const provider = new URL(url).hostname === "i.discogs.com" ? "discogs" : "coverart";
+    // Image CDNs (incl. i.discogs.com) don't count against API rate limits.
+    const provider = "coverart";
     const { bytes } = await fetchBytes(url, {
       provider,
       maxBytes: 10 * 1024 * 1024,

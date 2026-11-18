@@ -29,6 +29,7 @@ export const TABLES_IN_DEPENDENCY_ORDER = [
   "wishlist_tag",
   "provider_cache",
   "scan_item",
+  "import_job",
 ] as const;
 
 export type TableName = (typeof TABLES_IN_DEPENDENCY_ORDER)[number];
