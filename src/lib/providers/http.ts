@@ -63,14 +63,19 @@ export async function fetchJson<T>(url: string, opts: FetchJsonOptions<T>): Prom
     opts.onResponse?.(res);
     if ((res.status === 429 || res.status === 503 || res.status >= 500) && attempt < retries) {
       const retryAfter = Number(res.headers.get("retry-after"));
-      await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1000 * 2 ** attempt);
+      await sleep(
+        Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1000 * 2 ** attempt,
+      );
       continue;
     }
     if (res.status === 404) throw new ProviderError(opts.provider, "not found", 404);
     if (!res.ok) throw new ProviderError(opts.provider, `HTTP ${res.status}`, res.status);
     const parsed = opts.schema.safeParse(await res.json());
     if (!parsed.success) {
-      throw new ProviderError(opts.provider, `unexpected response: ${parsed.error.issues[0]?.message}`);
+      throw new ProviderError(
+        opts.provider,
+        `unexpected response: ${parsed.error.issues[0]?.message}`,
+      );
     }
     return parsed.data;
   }
@@ -79,20 +84,40 @@ export async function fetchJson<T>(url: string, opts: FetchJsonOptions<T>): Prom
 /** GET binary data (images) through a queue, with a size cap. */
 export async function fetchBytes(
   url: string,
-  opts: { provider: QueueName; maxBytes?: number; timeoutMs?: number; headers?: Record<string, string> },
+  opts: {
+    provider: QueueName;
+    maxBytes?: number;
+    timeoutMs?: number;
+    headers?: Record<string, string>;
+    /** Validate every URL in a redirect chain (SSRF guard). Default: allow any. */
+    allowUrl?: (url: string) => boolean;
+  },
 ): Promise<{ bytes: Buffer; contentType: string; finalUrl: string }> {
-  const res = await queueFor(opts.provider).add(() =>
-    fetch(url, {
-      headers: { "User-Agent": USER_AGENT, ...opts.headers },
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 20_000),
-      redirect: "follow",
-    }),
-  );
+  const allow = opts.allowUrl ?? (() => true);
+  const res = await queueFor(opts.provider).add(async () => {
+    let current = url;
+    for (let hop = 0; hop <= 5; hop++) {
+      if (!allow(current)) throw new ProviderError(opts.provider, "image host not allowed");
+      const r = await fetch(current, {
+        headers: { "User-Agent": USER_AGENT, ...opts.headers },
+        signal: AbortSignal.timeout(opts.timeoutMs ?? 20_000),
+        redirect: "manual",
+      });
+      const location = r.headers.get("location");
+      if (r.status >= 300 && r.status < 400 && location) {
+        await r.body?.cancel();
+        current = new URL(location, current).toString();
+        continue;
+      }
+      return r;
+    }
+    throw new ProviderError(opts.provider, "too many redirects");
+  });
   if (!res.ok) throw new ProviderError(opts.provider, `image HTTP ${res.status}`, res.status);
   const max = opts.maxBytes ?? 15 * 1024 * 1024;
   const length = Number(res.headers.get("content-length") ?? 0);
   if (length > max) throw new ProviderError(opts.provider, "image too large");
   const bytes = Buffer.from(await res.arrayBuffer());
   if (bytes.length > max) throw new ProviderError(opts.provider, "image too large");
-  return { bytes, contentType: res.headers.get("content-type") ?? "", finalUrl: res.url };
+  return { bytes, contentType: res.headers.get("content-type") ?? "", finalUrl: res.url || url };
 }

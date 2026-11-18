@@ -17,10 +17,19 @@ import {
   yearFrom,
 } from "@/lib/catalog/normalize";
 import { discogsFormat, mapDiscogsCandidate, mapDiscogsRelease } from "@/lib/providers/discogs";
-import { mapMbCandidate, mapMbRelease, mbFormat, mbTextQuery } from "@/lib/providers/musicbrainz";
+import {
+  mapMbCandidate,
+  mapMbRelease,
+  mbFormat,
+  mbTextQuery,
+  rankMbResults,
+  type MbRelease,
+} from "@/lib/providers/musicbrainz";
 
 const fixture = (name: string) =>
-  JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "../fixtures/providers", name), "utf8"));
+  JSON.parse(
+    fs.readFileSync(path.join(import.meta.dirname, "../fixtures/providers", name), "utf8"),
+  );
 
 describe("normalize", () => {
   it("builds diacritic-free search keys", () => {
@@ -57,15 +66,15 @@ describe("MusicBrainz", () => {
       barcodes: ["075992731324"],
     });
     expect(first.formatSummary).toBe("CD · Album");
-    expect(first.thumbUrl).toMatch(/^https:\/\/coverartarchive\.org\/release-group\/.+\/front-250$/);
+    expect(first.thumbUrl).toMatch(
+      /^https:\/\/coverartarchive\.org\/release-group\/.+\/front-250$/,
+    );
   });
 
   it("maps a full release with tracklist and release group", () => {
     const r = mapMbRelease(fixture("mb-release.json"));
     expect(r.title).toBe("Rumours");
-    expect(r.artists).toEqual([
-      expect.objectContaining({ name: "Fleetwood Mac", joinPhrase: "" }),
-    ]);
+    expect(r.artists).toEqual([expect.objectContaining({ name: "Fleetwood Mac", joinPhrase: "" })]);
     expect(r.tracklist).toHaveLength(11);
     expect(r.tracklist[0]).toEqual({ position: "1", title: "Second Hand News", duration: "2:54" });
     expect(r.master).toMatchObject({ title: "Rumours", year: 1977 });
@@ -79,15 +88,37 @@ describe("MusicBrainz", () => {
     expect(mbFormat(["CD", "CD"])).toBe("cd");
     expect(mbFormat(["Cassette"])).toBe("cassette");
     expect(mbFormat(["DVD-Audio"])).toBe("other");
-    const formats = fixture("mb-search-text.json").releases.map(mapMbCandidate).map((c: { format: string }) => c.format);
+    const formats = fixture("mb-search-text.json")
+      .releases.map(mapMbCandidate)
+      .map((c: { format: string }) => c.format);
     expect(formats).toContain("vinyl");
     expect(formats).toContain("cd");
   });
 
   it("builds text queries", () => {
-    expect(mbTextQuery("Fleetwood Mac - Rumours")).toBe('release:"Rumours" AND artist:"Fleetwood Mac"');
-    expect(mbTextQuery("rumours")).toContain("release:(rumours)");
+    expect(mbTextQuery("Fleetwood Mac - Rumours")).toBe(
+      'release:"Rumours" AND artist:"Fleetwood Mac"',
+    );
+    expect(mbTextQuery("fleetwood rumours")).toBe(
+      "(release:fleetwood OR artist:fleetwood) AND (release:rumours OR artist:rumours)",
+    );
     expect(mbTextQuery("AC/DC")).toContain("AC\\/DC");
+  });
+
+  it("re-ranks text results: the album first, tributes last, digital-only dropped", () => {
+    const rel = (id: string, title: string, artist: string, format = '12" Vinyl'): MbRelease => ({
+      id,
+      title,
+      "artist-credit": [{ name: artist, artist: { id: artist, name: artist } }],
+      media: [{ format }],
+    });
+    const ranked = rankMbResults("Fleetwood Mac Rumours", [
+      rel("tribute", "Plays Fleetwood Mac’s Rumours", "Royal Philharmonic Orchestra"),
+      rel("self", "Fleetwood Mac", "Fleetwood Mac"),
+      rel("digital", "Rumours", "Fleetwood Mac", "Digital Media"),
+      rel("album", "Rumours", "Fleetwood Mac"),
+    ]).map((r) => r.id);
+    expect(ranked).toEqual(["album", "self", "tribute"]);
   });
 });
 

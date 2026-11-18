@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 
-import { yearFrom } from "@/lib/catalog/normalize";
+import { searchKey, yearFrom } from "@/lib/catalog/normalize";
 import type { Format, Track } from "@/lib/catalog/types";
 import { fetchJson } from "./http";
 import type {
@@ -106,10 +106,15 @@ function formatParts(r: MbRelease): { details: string[]; summary: string } {
     counts.set(name, (counts.get(name) ?? 0) + 1);
   }
   const media = [...counts].map(([name, n]) => (n > 1 ? `${n}×${name}` : name));
-  const types = [r["release-group"]?.["primary-type"], ...(r["release-group"]?.["secondary-types"] ?? [])]
-    .filter((t): t is string => Boolean(t));
+  const types = [
+    r["release-group"]?.["primary-type"],
+    ...(r["release-group"]?.["secondary-types"] ?? []),
+  ].filter((t): t is string => Boolean(t));
   const details = [...media, ...types];
-  return { details, summary: [media.join(" + ") || "Unknown", types.join(", ")].filter(Boolean).join(" · ") };
+  return {
+    details,
+    summary: [media.join(" + ") || "Unknown", types.join(", ")].filter(Boolean).join(" · "),
+  };
 }
 
 function msToDuration(ms: number | null | undefined): string | undefined {
@@ -148,7 +153,9 @@ export function mapMbRelease(r: MbRelease): ReleaseDetail {
   const multiDisc = (r.media?.length ?? 0) > 1;
   const tracklist: Track[] = (r.media ?? []).flatMap((m, i) =>
     (m.tracks ?? []).map((t) => ({
-      position: multiDisc ? `${m.position ?? i + 1}-${t.number ?? t.position}` : String(t.number ?? t.position ?? ""),
+      position: multiDisc
+        ? `${m.position ?? i + 1}-${t.number ?? t.position}`
+        : String(t.number ?? t.position ?? ""),
       title: t.title,
       duration: msToDuration(t.length),
     })),
@@ -198,31 +205,81 @@ export function luceneEscape(term: string): string {
   return term.replace(/([+\-&|!(){}[\]^"~*?:\\/])/g, "\\$1");
 }
 
-/** "Artist - Title" → `release:"Title" AND artist:"Artist"`, else a plain query. */
+/**
+ * "Artist - Title" → `release:"Title" AND artist:"Artist"`. Otherwise every word must
+ * appear in the title or the artist name (so "Fleetwood Mac Rumours" finds Rumours rather
+ * than 50 pressings of the self-titled album); `rankMbResults` then orders the hits.
+ */
 export function mbTextQuery(input: string): string {
   const q = input.trim();
   const split = /^(.+?)\s+[-–—]\s+(.+)$/.exec(q);
   if (split) {
     return `release:"${luceneEscape(split[2])}" AND artist:"${luceneEscape(split[1])}"`;
   }
-  const words = luceneEscape(q);
-  // Match the words against the title or the artist.
-  return `release:(${words}) OR artist:(${words}) OR releasegroup:(${words})`;
+  return q
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 12)
+    .map((w) => luceneEscape(w))
+    .map((w) => `(release:${w} OR artist:${w})`)
+    .join(" AND ");
+}
+
+/** Fallback when the strict query finds nothing (typos, partial words). */
+export function mbLooseQuery(input: string): string {
+  const words = luceneEscape(input.trim());
+  return `release:(${words}) OR artist:(${words})`;
+}
+
+const tokens = (s: string) => new Set(searchKey(s).split(" ").filter(Boolean));
+
+/** Physical releases only: a collection app has no use for digital-only releases. */
+function isPhysical(r: MbRelease) {
+  const formats = (r.media ?? []).map((m) => m.format ?? "");
+  return formats.length === 0 || formats.some((f) => f !== "Digital Media");
+}
+
+/**
+ * Re-rank by how well title + artist account for the query words, penalizing extra
+ * title words ("Plays …", "A Tribute to …"). Stable, so MusicBrainz's order breaks ties.
+ */
+export function rankMbResults(query: string, releases: MbRelease[]): MbRelease[] {
+  const q = tokens(query);
+  if (!q.size) return releases;
+  const score = (r: MbRelease) => {
+    const title = tokens(r.title);
+    const artist = tokens(
+      (r["artist-credit"] ?? []).map((c) => c.name + (c.joinphrase ?? "")).join(""),
+    );
+    let covered = 0;
+    for (const w of q) if (title.has(w) || artist.has(w)) covered++;
+    const titleExtra = [...title].filter((w) => !q.has(w)).length / Math.max(title.size, 1);
+    const artistExtra = [...artist].filter((w) => !q.has(w)).length / Math.max(artist.size, 1);
+    return (2 * covered) / q.size - titleExtra - 0.3 * artistExtra;
+  };
+  return releases
+    .filter(isPhysical)
+    .map((r, i) => ({ r, i, s: score(r) }))
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .map((x) => x.r);
 }
 
 export function createMusicBrainzProvider(): MetadataProvider {
-  const search = async (query: string, limit = 25) => {
+  const fetchReleases = async (query: string, limit = 25) => {
     const url = `${API}/release/?fmt=json&limit=${limit}&query=${encodeURIComponent(query)}`;
-    const data = await fetchJson(url, { provider: "musicbrainz", schema: SearchSchema });
-    return data.releases.map(mapMbCandidate);
+    return (await fetchJson(url, { provider: "musicbrainz", schema: SearchSchema })).releases;
   };
+  const search = async (query: string) =>
+    (await fetchReleases(query)).filter(isPhysical).map(mapMbCandidate);
   return {
     name: "musicbrainz",
     searchByBarcode: (code) => search(`barcode:${code.replace(/\D/g, "")}`),
     searchByCatalogNumber: (catno) => search(`catno:"${luceneEscape(catno.trim())}"`),
     async searchByText(query: string, opts?: SearchOptions) {
-      const results = await search(mbTextQuery(query));
-      return opts?.format ? results.filter((r) => r.format === opts.format) : results;
+      const ranked = rankMbResults(query, await fetchReleases(mbTextQuery(query), 60)).map(
+        mapMbCandidate,
+      );
+      return (opts?.format ? ranked.filter((r) => r.format === opts.format) : ranked).slice(0, 25);
     },
     async getRelease(id: string) {
       const inc = "artist-credits+labels+recordings+release-groups+media+genres";
