@@ -17,6 +17,7 @@ describe("parseEnv", () => {
     expect(env.DATABASE_URL).toBe("file:/data/33rpm.db");
     expect(env.DATABASE_PATH).toBe("/data/33rpm.db");
     expect(env.DATABASE_DIALECT).toBe("sqlite");
+    expect(env.DATABASE_POOL_MAX).toBe(10);
     expect(env.IMAGES_DIR).toBe("/data/images");
     expect(env.BACKUPS_DIR).toBe("/data/backups");
     expect(env.AUTH_LOCAL_LOGIN).toBe(true);
@@ -33,9 +34,21 @@ describe("parseEnv", () => {
     );
   });
 
-  it("rejects PostgreSQL until Phase 0.5 and unknown schemes", () => {
-    expect(() => parseEnv({ ...base, DATABASE_URL: "postgres://u:p@db/x" })).toThrow(/Phase 0.5/);
+  it("accepts PostgreSQL URLs and rejects unknown schemes", () => {
+    const env = parseEnv({
+      ...base,
+      DATABASE_URL: "postgres://u:p@db:5432/x",
+      DATABASE_SSL: "require",
+      DATABASE_POOL_MAX: "4",
+    });
+    expect(env.DATABASE_DIALECT).toBe("pg");
+    expect(env.DATABASE_PATH).toBeNull();
+    expect(env.DATABASE_SSL).toBe("require");
+    expect(env.DATABASE_POOL_MAX).toBe(4);
+    expect(parseEnv({ ...base, DATABASE_URL: "postgresql://db/x" }).DATABASE_DIALECT).toBe("pg");
     expect(() => parseEnv({ ...base, DATABASE_URL: "mysql://db/x" })).toThrow(/file:/);
+    expect(() => parseEnv({ ...base, DATABASE_SSL: "maybe" })).toThrow(/DATABASE_SSL/);
+    expect(() => parseEnv({ ...base, DATABASE_POOL_MAX: "0" })).toThrow(/DATABASE_POOL_MAX/);
   });
 
   it("requires a long AUTH_SECRET and a valid APP_URL", () => {
