@@ -11,7 +11,7 @@ import {
   runMigrations,
   snapshotDatabase,
 } from "@/db/migrate";
-import { MIGRATIONS_ROOT, TEST_DIALECT, emptyDb, tmpDir, type TestDb } from "./db";
+import { MIGRATIONS_ROOT, TEST_DIALECT, emptyDb, migratedDb, tmpDir, type TestDb } from "./db";
 
 let db: TestDb | undefined;
 afterEach(async () => {
@@ -108,5 +108,29 @@ describe.runIf(TEST_DIALECT === "sqlite")("SQLite snapshots", () => {
     const files = fs.readdirSync(backups);
     expect(files.filter((f) => f.startsWith("33rpm-pre-migrate-"))).toHaveLength(5);
     expect(files).toContain("unrelated.db");
+  });
+});
+
+describe("automatic backups", () => {
+  it("snapshots on schedule and keeps the newest N", async () => {
+    if (TEST_DIALECT !== "sqlite") return;
+    const { maybeSnapshot, AUTO_PREFIX } = await import("@/server/backups");
+    const db = await migratedDb();
+    const backupsDir = path.join(db.dir, "auto");
+    const opts = { backupsDir, intervalHours: 24, keep: 2 };
+    const day = 86_400_000;
+    const t0 = Date.UTC(2026, 0, 1);
+    const files: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const f = maybeSnapshot(db, opts, t0 + i * day);
+      expect(f).toBeTruthy();
+      fs.utimesSync(f!, (t0 + i * day) / 1000, (t0 + i * day) / 1000);
+      files.push(f!);
+      expect(maybeSnapshot(db, opts, t0 + i * day + 3_600_000)).toBeNull();
+    }
+    const kept = fs.readdirSync(backupsDir).filter((f) => f.startsWith(AUTO_PREFIX));
+    expect(kept).toHaveLength(2);
+    expect(maybeSnapshot(db, { ...opts, intervalHours: 0 }, t0 + 99 * day)).toBeNull();
+    await db.cleanup();
   });
 });
