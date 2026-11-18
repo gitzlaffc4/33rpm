@@ -62,17 +62,24 @@ function hasUserTables(sqlite: Database.Database): boolean {
  * Copy the live database to `backupsDir` with `VACUUM INTO` (consistent even in
  * WAL mode) and prune old pre-migration snapshots.
  */
-export function snapshotDatabase(sqlite: Database.Database, backupsDir: string, now = new Date()) {
+export function snapshotDatabase(
+  sqlite: Database.Database,
+  backupsDir: string,
+  now = new Date(),
+  opts: { prefix?: string; keep?: number } = {},
+) {
+  const prefix = opts.prefix ?? SNAPSHOT_PREFIX;
+  const keep = opts.keep ?? SNAPSHOTS_TO_KEEP;
   fs.mkdirSync(backupsDir, { recursive: true });
   const stamp = now.toISOString().replace(/[:.]/g, "-");
-  const file = path.join(backupsDir, `${SNAPSHOT_PREFIX}${stamp}.db`);
+  const file = path.join(backupsDir, `${prefix}${stamp}.db`);
   sqlite.prepare("VACUUM INTO ?").run(file);
 
   const old = fs
     .readdirSync(backupsDir)
-    .filter((f) => f.startsWith(SNAPSHOT_PREFIX) && f.endsWith(".db"))
+    .filter((f) => f.startsWith(prefix) && f.endsWith(".db"))
     .sort()
-    .slice(0, -SNAPSHOTS_TO_KEEP);
+    .slice(0, -keep);
   for (const f of old) fs.rmSync(path.join(backupsDir, f), { force: true });
 
   return file;
@@ -162,4 +169,56 @@ export async function migrateDatabase(
     pool: handle.pool!,
     migrationsFolder: path.join(opts.migrationsRoot, "pg"),
   });
+}
+
+export type SchemaVersion = {
+  /** Number of migrations applied (comparable across dialects: both journals share tags). */
+  applied: number;
+  /** Migrations this build knows about. */
+  known: number;
+  /** The database has migrations this build doesn't know (it was used by a newer 33rpm). */
+  newer: boolean;
+  lastTag: string | null;
+};
+
+/** Migration version of any database (read-only queries). */
+export async function schemaVersion(
+  handle: DbHandle,
+  migrationsRoot: string,
+): Promise<SchemaVersion> {
+  const folder = path.join(migrationsRoot, handle.dialect === "pg" ? "pg" : "sqlite");
+  const journal = readJournal(folder);
+  let last = 0;
+  if (handle.dialect === "sqlite") {
+    const sqlite = handle.sqlite!;
+    const hasTable = sqlite
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+      .get(MIGRATIONS_TABLE);
+    if (hasTable) {
+      last =
+        (
+          sqlite.prepare(`SELECT MAX(created_at) AS last FROM ${MIGRATIONS_TABLE}`).get() as {
+            last: number | null;
+          }
+        ).last ?? 0;
+    }
+  } else {
+    const { rows } = await handle.pool!.query<{ t: string | null }>(
+      `SELECT to_regclass('${PG_MIGRATIONS_SCHEMA}.${MIGRATIONS_TABLE}')::text AS t`,
+    );
+    if (rows[0]?.t) {
+      const res = await handle.pool!.query<{ last: string | null }>(
+        `SELECT MAX(created_at)::text AS last FROM ${PG_MIGRATIONS_SCHEMA}.${MIGRATIONS_TABLE}`,
+      );
+      last = Number(res.rows[0]?.last ?? 0);
+    }
+  }
+  const applied = journal.entries.filter((e) => e.when <= last);
+  const newest = journal.entries.at(-1)?.when ?? 0;
+  return {
+    applied: applied.length,
+    known: journal.entries.length,
+    newer: last > newest,
+    lastTag: applied.at(-1)?.tag ?? null,
+  };
 }
