@@ -1,6 +1,7 @@
 /** Users, credential accounts and sessions (rows Better Auth also manages). */
 import { and, eq } from "drizzle-orm";
 
+import { normalizeEmail } from "@/lib/email";
 import { getDb, type Db, type DbHandle } from "@/db";
 import { newId } from "@/db/ids";
 import { exclusive } from "@/db/tx";
@@ -16,7 +17,7 @@ export async function findUserByEmail(email: string, h: DbHandle = getDb()) {
   const rows = await h.db
     .select()
     .from(h.t.user)
-    .where(eq(h.t.user.email, email.trim().toLowerCase()));
+    .where(eq(h.t.user.email, normalizeEmail(email)));
   return rows[0] ?? null;
 }
 
@@ -35,7 +36,7 @@ export async function createUserWithPassword(
   await tx.insert(t.user).values({
     id: userId,
     name: input.name,
-    email: input.email.trim().toLowerCase(),
+    email: normalizeEmail(input.email),
     emailVerified: input.emailVerified ?? false,
     createdAt: now,
     updatedAt: now,

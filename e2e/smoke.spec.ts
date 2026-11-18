@@ -44,7 +44,9 @@ test.describe("first run", () => {
     const fill = async (code: string) => {
       await page.getByLabel("Setup code").fill(code);
       await page.getByLabel("Name").fill(ADMIN.name);
-      await page.getByLabel("Email").fill(ADMIN.email);
+      // Autofill-style junk around the address (non-breaking space, capitals) must not
+      // make a valid email "invalid".
+      await page.getByLabel("Email").fill(`${ADMIN.email.toUpperCase()}\u00A0`);
       await page.getByLabel("Password", { exact: true }).fill(ADMIN.password);
       await page.getByLabel("Confirm password").fill(ADMIN.password);
       await page.getByRole("button", { name: "Create admin account" }).click();
