@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { MobileTabBar, SidebarNav } from "@/components/app-shell/app-nav";
+import {
+  MobileTabBar,
+  MobileTabBarList,
+  SidebarNav,
+  SidebarNavList,
+} from "@/components/app-shell/app-nav";
 import { UserBadge, UserBadgeSkeleton } from "@/components/app-shell/user-badge";
 import { Logo } from "@/components/logo";
 
@@ -19,7 +24,9 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         <Link href="/library" className="px-2 py-1" aria-label="33rpm home">
           <Logo className="text-lg" />
         </Link>
-        <SidebarNav />
+        <Suspense fallback={<SidebarNavList pathname="" />}>
+          <SidebarNav />
+        </Suspense>
         <div className="mt-auto">
           <Suspense fallback={<UserBadgeSkeleton />}>
             <UserBadge />
@@ -41,7 +48,9 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         </main>
       </div>
 
-      <MobileTabBar />
+      <Suspense fallback={<MobileTabBarList pathname="" />}>
+        <MobileTabBar />
+      </Suspense>
     </div>
   );
 }

@@ -47,18 +47,18 @@ Legend: **Goal** · deliverables · ✅ acceptance criteria
 ## Phase 1 — Catalog core
 **Goal:** Add items by search and see them in a good-looking library.
 
-- [ ] Full schema: Artist, Master, Release, Copy, WishlistItem, Location, Tag (+ join tables), all with `userId`
-- [ ] `MetadataProvider` interface; Discogs + MusicBrainz/Cover Art Archive implementations
-- [ ] Rate-limited fetch queue per provider; response caching; image cache on disk
-- [ ] Add flow: text search (artist/title), barcode typed in, catalog number → candidate list showing cover, format, label, catno, year, country → pick exact release → create Copy
-- [ ] "Add another copy" and "Add a different edition" from an album page
-- [ ] Manual entry for unknown items (with optional cover upload)
-- [ ] Library views: Albums grid, Artists, Formats, Locations, Recently Added
-- [ ] Album (Master) page: big art, tracklist, my copies, other editions, Discogs/MB links, attribution
-- [ ] Copy edit: Goldmine conditions, price/date/source, location, notes, tags, photos
-- [ ] Duplicate warning when adding a release I already own
-- [ ] Seed script (~20 sample releases across formats) for dev
-- [ ] Every new table lands in both schema trees (SQLite + Postgres) with both migrations; repos tested on both
+- [x] Full schema: Artist, Master, Release, Copy, WishlistItem, Location, Tag (+ join tables), all with `userId`
+- [x] `MetadataProvider` interface; Discogs + MusicBrainz/Cover Art Archive implementations
+- [x] Rate-limited fetch queue per provider; response caching; image cache on disk
+- [x] Add flow: text search (artist/title), barcode typed in, catalog number → candidate list showing cover, format, label, catno, year, country → pick exact release → create Copy
+- [x] "Add another copy" and "Add a different edition" from an album page
+- [x] Manual entry for unknown items (with optional cover upload)
+- [x] Library views: Albums grid, Artists, Formats, Locations, Recently Added
+- [x] Album (Master) page: big art, tracklist, my copies, other editions, Discogs/MB links, attribution
+- [x] Copy edit: Goldmine conditions, price/date/source, location, notes, tags, photos
+- [x] Duplicate warning when adding a release I already own
+- [x] Seed script (~20 sample releases across formats) for dev
+- [x] Every new table lands in both schema trees (SQLite + Postgres) with both migrations; repos tested on both
 
 ✅ I can search "Rumours", choose the exact pressing I own, set its condition and shelf, and see it in the grid within seconds. Works with no Discogs token (MusicBrainz only).
 

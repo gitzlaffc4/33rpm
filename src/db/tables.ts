@@ -13,6 +13,21 @@ export const TABLES_IN_DEPENDENCY_ORDER = [
   "verification",
   "app_state",
   "user_settings",
+  "image",
+  "artist",
+  "master",
+  "master_artist",
+  "release",
+  "release_artist",
+  "release_barcode",
+  "location",
+  "tag",
+  "copy",
+  "copy_tag",
+  "copy_photo",
+  "wishlist_item",
+  "wishlist_tag",
+  "provider_cache",
 ] as const;
 
 export type TableName = (typeof TABLES_IN_DEPENDENCY_ORDER)[number];

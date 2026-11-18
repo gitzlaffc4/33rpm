@@ -16,7 +16,8 @@
     "db:studio": "drizzle-kit studio --config drizzle.sqlite.config.ts",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
-    "build:cli": "esbuild src/cli.ts --bundle --platform=node --target=node26 --format=cjs --outfile=dist/cli.js --external:better-sqlite3 --external:pg --external:pg-native --log-level=warning"
+    "build:cli": "esbuild src/cli.ts --bundle --platform=node --target=node26 --format=cjs --outfile=dist/cli.js --external:better-sqlite3 --external:pg --external:pg-native --log-level=warning",
+    "db:seed": "esbuild scripts/seed.ts --bundle --platform=node --target=node26 --format=cjs --outfile=dist/seed.js --external:better-sqlite3 --external:pg --external:pg-native --external:sharp --alias:server-only=./tests/stubs/server-only.ts --log-level=warning && node --env-file-if-exists=.env dist/seed.js"
   },
   "dependencies": {
     "@radix-ui/react-label": "2.1.17",
@@ -29,10 +30,12 @@
     "lucide-react": "1.74.0",
     "next": "16.4.6",
     "next-themes": "0.4.6",
+    "p-queue": "10.0.0",
     "pg": "8.23.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "server-only": "0.0.1",
+    "sharp": "0.35.5",
     "tailwind-merge": "3.7.0",
     "zod": "4.6.7"
   },

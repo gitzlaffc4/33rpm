@@ -52,6 +52,36 @@ as the admin exists; restarting the container before then prints a fresh one.
 
 ---
 
+## Adding to your collection
+
+Open **Add** and type an artist and title, a barcode, or a catalog number (auto-detected, or
+pick the mode). Results show cover, format, label, catalog number, country and year so you can
+choose the exact pressing; a badge marks releases you already own. Pick one, set its condition
+(Goldmine scale), price, date, source, shelf and tags, and it lands in your library.
+
+- **Album page:** big art, tracklist, your copies grouped by edition, other editions in the
+  catalog, links to Discogs/MusicBrainz, and **Add another copy** / **Add a different edition**.
+- **Manual entry** covers anything no provider knows about, with an optional cover upload.
+- **Copies** can be edited later and given photos (wear, inserts, matrix etchings).
+- **Library views:** Albums, Artists, Formats, Locations (manage shelves/crates there) and
+  Recently added, with filtering and sorting.
+
+### Metadata sources and network access
+
+| Host | Used for |
+| --- | --- |
+| `musicbrainz.org` | Search and release details (always; max 1 request/second) |
+| `coverartarchive.org`, `*.archive.org` | Cover art for MusicBrainz releases |
+| `api.discogs.com`, `i.discogs.com` | Search, details and covers, only when a Discogs token is set |
+
+Responses are cached in the database and covers are stored once as WebP (600 and 1200 px) under
+`/data/images`; pages never trigger provider calls. **Refresh metadata** on an album page is the
+only way to re-fetch. Search thumbnails are proxied through the app, so browsers never contact
+third parties.
+
+If the server reaches the internet through an HTTP(S) proxy, set `NODE_USE_ENV_PROXY=1` along
+with `HTTPS_PROXY` (Node's `fetch` ignores proxy variables otherwise).
+
 ## Configuration
 
 All configuration is via environment variables (see [`.env.example`](.env.example)). Invalid
@@ -255,6 +285,7 @@ npm run dev             # http://localhost:3000; the setup code prints in this t
 | `npm run test:integration` | Integration tests only. Set `TEST_DATABASE_URL=postgres://…` to run them on PostgreSQL. |
 | `npm run build:cli`   | Bundle the admin CLI to `dist/cli.js`.                                                 |
 | `npm run test:e2e`    | Playwright smoke test against the production build (run `npm run build` first).       |
+| `npm run db:seed`     | Add ~20 sample releases (generated covers) for the first user. Run setup first; `-- --force` to repeat. |
 | `npm run db:generate` | Generate migrations for **both** dialects after changing `src/db/schema/{sqlite,pg}`. Migrations are committed. |
 
 PostgreSQL integration tests locally:

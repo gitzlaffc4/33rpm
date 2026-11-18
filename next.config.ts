@@ -24,6 +24,11 @@ const nextConfig: NextConfig = {
   // package.json is the single source of truth for the version.
   env: { APP_VERSION: pkg.version, APP_COMMIT: process.env.APP_COMMIT ?? "" },
   poweredByHeader: false,
+  experimental: {
+    // Phone photos of copies and cover uploads go through Server Actions / the proxy.
+    serverActions: { bodySizeLimit: "25mb" },
+    proxyClientMaxBodySize: "25mb",
+  },
   turbopack: {
     rules: {
       "*.css": {
