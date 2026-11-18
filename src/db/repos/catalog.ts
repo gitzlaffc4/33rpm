@@ -10,10 +10,12 @@ import {
   countDistinct,
   desc,
   eq,
+  gte,
   inArray,
   isNotNull,
   isNull,
   like,
+  lte,
   max,
   or,
   type SQL,
@@ -22,6 +24,7 @@ import {
 import { getDb, type Db, type DbHandle } from "@/db";
 import { newId } from "@/db/ids";
 import type { Schema } from "@/db/schema";
+import { getSearchIndex } from "@/db/search";
 import { exclusive, withTransaction } from "@/db/tx";
 import {
   barcodeVariants,
@@ -270,7 +273,7 @@ export async function importRelease(
   cover: ImageRow | null,
   h: DbHandle = getDb(),
 ): Promise<{ releaseId: string; masterId: string; created: boolean }> {
-  return withTransaction(async (tx) => {
+  const res = await withTransaction(async (tx) => {
     const t = h.t;
     const p = detail.provider;
     const coverImageId = await insertImage(tx, t, cover);
@@ -327,6 +330,8 @@ export async function importRelease(
     await setBarcodes(tx, t, releaseId, detail.barcodes);
     return { releaseId, masterId, created: !existing };
   }, h);
+  await getSearchIndex(h).upsert([res.releaseId]);
+  return res;
 }
 
 export type ManualReleaseInput = {
@@ -351,7 +356,7 @@ export async function createManualRelease(
   cover: ImageRow | null,
   h: DbHandle = getDb(),
 ): Promise<{ releaseId: string; masterId: string }> {
-  return withTransaction(async (tx) => {
+  const res = await withTransaction(async (tx) => {
     const t = h.t;
     const coverImageId = await insertImage(tx, t, cover);
     const credits: ArtistCredit[] = [{ name: input.artist, joinPhrase: "" }];
@@ -397,6 +402,8 @@ export async function createManualRelease(
     }
     return { releaseId, masterId };
   }, h);
+  await getSearchIndex(h).upsert([res.releaseId]);
+  return res;
 }
 
 /** Local releases matching a barcode (scan → instant hit without a provider call). */
@@ -735,6 +742,17 @@ export type LibraryFilter = {
   format?: Format;
   locationId?: string;
   artistId?: string;
+  /** Only these albums (e.g. search hits). */
+  masterIds?: string[];
+  tagId?: string;
+  /** Media condition (Goldmine). */
+  condition?: Condition;
+  /** e.g. 1970 for the 1970s (album year). */
+  decade?: number;
+  genre?: string;
+  /** Price range in minor units (any currency). */
+  priceMin?: number;
+  priceMax?: number;
   sort?: "artist" | "title" | "year" | "added";
 };
 
@@ -759,6 +777,22 @@ export async function listAlbums(
   const where: SQL[] = [eq(t.copy.userId, userId)];
   if (f.format) where.push(eq(t.release.format, f.format));
   if (f.locationId) where.push(eq(t.copy.locationId, f.locationId));
+  if (f.masterIds) {
+    if (!f.masterIds.length) return [];
+    where.push(inArray(t.master.id, f.masterIds));
+  }
+  if (f.tagId) {
+    const tagged = h.db
+      .select({ id: t.copyTag.copyId })
+      .from(t.copyTag)
+      .where(eq(t.copyTag.tagId, f.tagId));
+    where.push(inArray(t.copy.id, tagged));
+  }
+  if (f.condition) where.push(eq(t.copy.mediaCondition, f.condition));
+  if (f.decade !== undefined)
+    where.push(and(gte(t.master.year, f.decade), lte(t.master.year, f.decade + 9))!);
+  if (f.priceMin !== undefined) where.push(gte(t.copy.priceMinor, f.priceMin));
+  if (f.priceMax !== undefined) where.push(lte(t.copy.priceMinor, f.priceMax));
   if (f.artistId) {
     const sub = h.db
       .select({ id: t.masterArtist.masterId })
@@ -797,7 +831,19 @@ export async function listAlbums(
     .where(and(...where))
     .groupBy(t.master.id, t.master.title, t.master.year, t.master.coverImageId);
 
-  const ids = rows.map((r) => r.masterId);
+  let ids = rows.map((r) => r.masterId);
+  if (f.genre && ids.length) {
+    // Genres are a JSON array (rule 5: never query inside JSON), so filter here.
+    const g = await h.db
+      .select({ id: t.master.id, genres: t.master.genres, styles: t.master.styles })
+      .from(t.master)
+      .where(inArray(t.master.id, ids));
+    const keep = new Set(
+      g.filter((m) => [...m.genres, ...m.styles].includes(f.genre!)).map((m) => m.id),
+    );
+    ids = ids.filter((id) => keep.has(id));
+  }
+  const kept = new Set(ids);
   const [artists, formats, covers] = await Promise.all([
     artistsFor("master", ids, h),
     ids.length
@@ -819,20 +865,22 @@ export async function listAlbums(
   for (const r of formats) fmtBy.set(r.masterId, [...(fmtBy.get(r.masterId) ?? []), r.format]);
   const coverBy = new Map(covers.map((c) => [c.masterId, c.coverImageId]));
 
-  const cards: (AlbumCard & { sortArtist: string })[] = rows.map((r) => {
-    const a = artists.get(r.masterId) ?? [];
-    return {
-      masterId: r.masterId,
-      title: r.title,
-      year: r.year,
-      artist: creditsDisplay(a),
-      sortArtist: searchKey(defaultSortName(a[0]?.name ?? "")),
-      coverImageId: r.coverImageId ?? coverBy.get(r.masterId) ?? null,
-      formats: (fmtBy.get(r.masterId) ?? []).sort(),
-      copies: Number(r.copies),
-      lastAdded: toDate(r.lastAdded),
-    };
-  });
+  const cards: (AlbumCard & { sortArtist: string })[] = rows
+    .filter((r) => kept.has(r.masterId))
+    .map((r) => {
+      const a = artists.get(r.masterId) ?? [];
+      return {
+        masterId: r.masterId,
+        title: r.title,
+        year: r.year,
+        artist: creditsDisplay(a),
+        sortArtist: searchKey(defaultSortName(a[0]?.name ?? "")),
+        coverImageId: r.coverImageId ?? coverBy.get(r.masterId) ?? null,
+        formats: (fmtBy.get(r.masterId) ?? []).sort(),
+        copies: Number(r.copies),
+        lastAdded: toDate(r.lastAdded),
+      };
+    });
   const collator = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
   const sort = f.sort ?? "artist";
   cards.sort((a, b) => {
@@ -1179,4 +1227,41 @@ export async function findCopyByDiscogsInstance(
     .innerJoin(h.t.tag, eq(h.t.tag.id, h.t.copyTag.tagId))
     .where(eq(h.t.copyTag.copyId, row.id));
   return { ...row, tags: tags.map((t) => t.name) };
+}
+
+/** Master ids for releases (search hits → albums). */
+export async function mastersOfReleases(releaseIds: string[], h: DbHandle = getDb()) {
+  if (!releaseIds.length) return new Map<string, string>();
+  const rows = await h.db
+    .select({ id: h.t.release.id, masterId: h.t.release.masterId })
+    .from(h.t.release)
+    .where(inArray(h.t.release.id, releaseIds));
+  return new Map(rows.map((r) => [r.id, r.masterId]));
+}
+
+/** Genres/styles, decades and tags present in the user's library (filter menus). */
+export async function libraryFacets(userId: string, h: DbHandle = getDb()) {
+  const t = h.t;
+  const rows = await h.db
+    .selectDistinct({
+      id: t.master.id,
+      year: t.master.year,
+      genres: t.master.genres,
+      styles: t.master.styles,
+    })
+    .from(t.copy)
+    .innerJoin(t.release, eq(t.release.id, t.copy.releaseId))
+    .innerJoin(t.master, eq(t.master.id, t.release.masterId))
+    .where(eq(t.copy.userId, userId));
+  const genres = new Map<string, number>();
+  const decades = new Set<number>();
+  for (const r of rows) {
+    for (const g of new Set([...r.genres, ...r.styles])) genres.set(g, (genres.get(g) ?? 0) + 1);
+    if (r.year) decades.add(Math.floor(r.year / 10) * 10);
+  }
+  return {
+    genres: [...genres].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([g]) => g),
+    decades: [...decades].sort((a, b) => a - b),
+    tags: await listTags(userId, h),
+  };
 }

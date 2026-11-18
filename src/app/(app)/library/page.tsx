@@ -15,6 +15,8 @@ import {
   countCopies,
   formatCounts,
   getArtist,
+  libraryFacets,
+  type Condition,
   listAlbums,
   listArtists,
   listLocations,
@@ -23,6 +25,7 @@ import {
   type LibraryFilter,
 } from "@/db/repos/catalog";
 import { addLocation, removeLocation, saveLocationName } from "@/lib/catalog/actions";
+import { CONDITIONS } from "@/db/schema/sqlite/catalog";
 import { FORMAT_LABEL, FORMAT_ORDER, isFormat } from "@/lib/catalog/format";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -132,15 +135,33 @@ async function AlbumsView({ userId, sp }: { userId: string; sp: SP }) {
     format: isFormat(fmt) ? fmt : undefined,
     locationId: one(sp.location),
     artistId: one(sp.artist),
+    tagId: one(sp.tag),
+    genre: one(sp.genre),
+    condition: (CONDITIONS as readonly string[]).includes(one(sp.condition) ?? "")
+      ? (one(sp.condition) as Condition)
+      : undefined,
+    decade: /^\d{4}$/.test(one(sp.decade) ?? "") ? Number(one(sp.decade)) : undefined,
+    priceMin: priceParam(one(sp.min)),
+    priceMax: priceParam(one(sp.max)),
     sort:
       sortParam === "title" || sortParam === "year" || sortParam === "added" ? sortParam : "artist",
   };
-  const [albums, locations, artist] = await Promise.all([
+  const [albums, locations, artist, facets] = await Promise.all([
     listAlbums(userId, filter),
     listLocations(userId),
     filter.artistId ? getArtist(filter.artistId) : Promise.resolve(null),
+    libraryFacets(userId),
   ]);
   const location = locations.find((l) => l.id === filter.locationId);
+  const tag = facets.tags.find((t) => t.id === filter.tagId);
+  const moreActive = Boolean(
+    filter.tagId ||
+    filter.genre ||
+    filter.condition ||
+    filter.decade ||
+    filter.priceMin ||
+    filter.priceMax,
+  );
   return (
     <div className="space-y-4">
       <form action="/library" role="search" className="grid grid-cols-3 gap-2 md:flex">
@@ -200,13 +221,83 @@ async function AlbumsView({ userId, sp }: { userId: string; sp: SP }) {
         <Button type="submit" variant="secondary" className="col-span-3 md:col-span-1">
           Apply
         </Button>
+        <details className="col-span-3 md:basis-full" open={moreActive}>
+          <summary className="cursor-pointer py-1 text-sm text-muted-foreground">
+            More filters
+          </summary>
+          <div className="grid grid-cols-2 gap-2 pt-2 md:grid-cols-6">
+            <NativeSelect name="genre" defaultValue={filter.genre ?? ""} aria-label="Genre">
+              <option value="">Any genre</option>
+              {facets.genres.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </NativeSelect>
+            <NativeSelect
+              name="decade"
+              defaultValue={filter.decade ? String(filter.decade) : ""}
+              aria-label="Decade"
+            >
+              <option value="">Any decade</option>
+              {facets.decades.map((d) => (
+                <option key={d} value={d}>
+                  {d}s
+                </option>
+              ))}
+            </NativeSelect>
+            <NativeSelect
+              name="condition"
+              defaultValue={filter.condition ?? ""}
+              aria-label="Media condition"
+            >
+              <option value="">Any condition</option>
+              {CONDITIONS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </NativeSelect>
+            <NativeSelect name="tag" defaultValue={filter.tagId ?? ""} aria-label="Tag">
+              <option value="">Any tag</option>
+              {facets.tags.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </NativeSelect>
+            <Input
+              name="min"
+              inputMode="decimal"
+              placeholder="Min price"
+              aria-label="Minimum price"
+              defaultValue={one(sp.min) ?? ""}
+            />
+            <Input
+              name="max"
+              inputMode="decimal"
+              placeholder="Max price"
+              aria-label="Maximum price"
+              defaultValue={one(sp.max) ?? ""}
+            />
+          </div>
+        </details>
       </form>
-      {(artist || location || filter.format || filter.q) && (
+      {(artist || location || filter.format || filter.q || moreActive) && (
         <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {albums.length} album{albums.length === 1 ? "" : "s"}
           {artist && <Badge variant="secondary">by {artist.name}</Badge>}
           {filter.format && <Badge variant="secondary">{FORMAT_LABEL[filter.format]}</Badge>}
           {location && <Badge variant="secondary">in {location.name}</Badge>}
+          {filter.genre && <Badge variant="secondary">{filter.genre}</Badge>}
+          {filter.decade && <Badge variant="secondary">{filter.decade}s</Badge>}
+          {filter.condition && <Badge variant="secondary">{filter.condition}</Badge>}
+          {tag && <Badge variant="secondary">#{tag.name}</Badge>}
+          {(filter.priceMin !== undefined || filter.priceMax !== undefined) && (
+            <Badge variant="secondary">
+              {one(sp.min) || "0"}–{one(sp.max) || "∞"}
+            </Badge>
+          )}
           <Link href="/library" className="underline underline-offset-2">
             Clear
           </Link>
@@ -219,6 +310,13 @@ async function AlbumsView({ userId, sp }: { userId: string; sp: SP }) {
       )}
     </div>
   );
+}
+
+/** "24.99" → 2499 (2-decimal currencies; filters are approximate across currencies). */
+function priceParam(v: string | undefined) {
+  if (!v) return undefined;
+  const n = Number(v.replace(",", "."));
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : undefined;
 }
 
 function AlbumGrid({ albums }: { albums: AlbumCard[] }) {
