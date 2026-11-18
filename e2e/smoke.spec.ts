@@ -218,4 +218,35 @@ test.describe("signed in", () => {
     await expect(page.getByText(title).filter({ visible: true }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "View copy" }).first()).toBeVisible();
   });
+
+  test("CSV import with column matching, then export", async ({ page, request }, info) => {
+    test.skip(info.project.name !== "desktop", "once is enough");
+    const csv = [
+      "Artist,Title,Format,Cat. Number,Condition,Purchase Price,Storage Device,Tags",
+      'Csv Band,"Imported, Vol. 1",Vinyl LP,CSV-001,Near Mint (NM or M-),12.00,Crate CSV,"one;two"',
+      "Csv Band,Imported Vol. 2,CD,CSV-002,VG+,5,Crate CSV,",
+    ].join("\n");
+    await page.goto("/settings/data");
+    await page
+      .getByLabel("CSV file")
+      .setInputFiles({ name: "my.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+    await expect(page.getByText("2 rows, 8 columns")).toBeVisible();
+    await expect(page.getByLabel("Catalog number")).toHaveValue("3");
+    await page.getByRole("button", { name: "Import 2 rows" }).click();
+    await expect(page.getByText(/Added 2, skipped 0/)).toBeVisible();
+
+    // Re-importing the same file adds nothing.
+    await page.getByRole("button", { name: "Import 2 rows" }).click();
+    await expect(page.getByText(/Added 0, skipped 2/)).toBeVisible();
+
+    const res = await request.get("/api/export/collection.csv");
+    expect(res.ok()).toBe(true);
+    const body = await res.text();
+    expect(body).toContain('"Imported, Vol. 1"');
+    expect(body).toContain("CSV-002");
+    const json = await (await request.get("/api/export/library.json")).json();
+    expect(json.collection.some((r: { title: string }) => r.title === "Imported Vol. 2")).toBe(
+      true,
+    );
+  });
 });

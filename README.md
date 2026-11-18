@@ -118,6 +118,23 @@ entry). The new copy is linked to the wishlist item, which moves to **Acquired**
 with *You own this*, *On your wishlist*, *You own another edition* or *Not in your collection*,
 with one-tap buttons to want it or add it.
 
+## Importing your existing catalog
+
+**Settings → Import & export**:
+
+- **Discogs:** imports your collection (media/sleeve condition, notes, rating, date added; folders
+  become locations or tags) and your wantlist (→ wishlist). It runs in the background within
+  Discogs' rate limits and survives restarts. Run it again any time to sync: copies are matched by
+  their Discogs collection instance, so nothing is duplicated; changed conditions/notes are
+  updated, and the report lists what was added, updated and left unchanged. Local-only details
+  (price, where you bought it) are kept. Optionally fetches full tracklists and barcodes for new
+  releases (about one per second).
+- **CSV:** any export (MusicBuddy, CLZ, Discogs CSV, a spreadsheet). Pick the file, check the
+  auto-matched columns and the preview, import. Conditions like "Near Mint (NM or M-)" and
+  "Excellent" map to the Goldmine scale. "Skip releases I already own" makes re-importing the same
+  file safe.
+- **Export:** collection and wishlist as CSV, or everything as JSON.
+
 ## Configuration
 
 All configuration is via environment variables (see [`.env.example`](.env.example)). Invalid
@@ -143,6 +160,9 @@ configuration stops the server at startup with a message naming the variable.
 | `OIDC_ALLOWED_EMAILS` | — (allow all)                    | Comma-separated addresses and/or `@domains` allowed to sign in, link or sign up via SSO.                                                                                    |
 | `TRUSTED_PROXIES`     | —                                | IPs/CIDRs of your reverse proxies, used to find the client IP in `X-Forwarded-For` chains.                                                                                  |
 | `IP_ADDRESS_HEADERS`  | `x-forwarded-for`                | Header(s) carrying the client IP, e.g. `cf-connecting-ip` or `x-real-ip`.                                                                                                   |
+| `MIGRATE_FROM_URL`    | —                                | Database to offer for "Import existing library" on first start (see [Switching backends](#switching-backends-sqlite--postgresql)). Without it, a SQLite file at `$DATA_DIR/33rpm.db` is offered when running on PostgreSQL. |
+| `BACKUP_INTERVAL_HOURS` | `24`                           | Hours between automatic SQLite snapshots in `$DATA_DIR/backups` (`0` disables).                                                                                              |
+| `BACKUP_KEEP`         | `7`                              | How many automatic snapshots to keep.                                                                                                                                        |
 | `DISCOGS_TOKEN`       | —                                | Default Discogs personal access token. A token saved in Settings overrides it. Without any token, 33rpm uses MusicBrainz only.                                              |
 | `PORT` / `HOSTNAME`   | `3000` / `0.0.0.0`               | Listen address (set in the image).                                                                                                                                          |
 
@@ -249,9 +269,38 @@ startup, guarded by a Postgres advisory lock, so several replicas can start at o
 docker exec 33rpm-db pg_dump -U 33rpm -Fc 33rpm > 33rpm-$(date +%F).dump
 ```
 
-**Switching backends:** an existing library can't be moved between SQLite and PostgreSQL yet.
-An in-app "Import existing library" step and a `db:copy` command are planned for Phase 4. Until
-then, pick one backend for a fresh install.
+Restore a dump into an empty database (stop the app first):
+
+```bash
+docker exec -i 33rpm-db pg_restore -U 33rpm -d 33rpm --clean --if-exists < 33rpm-2026-01-01.dump
+```
+
+### Switching backends (SQLite ⇄ PostgreSQL)
+
+1. Stop 33rpm.
+2. Change `DATABASE_URL` to the new, **empty** database. Keep the `/data` volume mounted.
+3. Start 33rpm and open it. The setup screen offers **Import existing library** with what it
+   found (e.g. "SQLite library: 1,243 copies, 87 wishlist items, 1 user"). Enter the setup code
+   from the logs and confirm.
+4. Sign in with your existing account. Covers and photos keep working (they're in `/data/images`).
+
+It finds the old library automatically when moving **SQLite → PostgreSQL** (the default
+`/data/33rpm.db`). For any other source, set `MIGRATE_FROM_URL` (e.g. `postgres://…` to move
+back to SQLite). Every table is copied in one transaction with ids preserved, row counts are
+verified (any mismatch rolls back), and a log is written to `/data/backups/migration-*.log`. The
+source is only read; the default SQLite file is renamed to `33rpm.db.migrated-<timestamp>`
+afterwards (never deleted), so rolling back is just changing `DATABASE_URL` back. An older
+SQLite source is upgraded on a temporary copy; an older PostgreSQL source must be started once
+with the current version first. **Start fresh instead** skips the import and leaves the source
+alone.
+
+Scripted alternative, same engine and rules:
+
+```bash
+docker exec -it 33rpm 33rpm db:copy --from file:/data/33rpm.db --to postgres://user:pass@db:5432/33rpm --dry-run
+```
+
+`--dry-run` shows row counts and schema compatibility without writing; drop it to copy.
 
 ---
 
@@ -297,7 +346,23 @@ database already has data and a migration is pending, 33rpm first writes a consi
 container, copy a snapshot over `/data/33rpm.db` (removing any `33rpm.db-wal`/`-shm` files), and
 start the previous image version.
 
-Nightly snapshots and restore tooling are planned for Phase 4.
+**Automatic backups (SQLite):** every `BACKUP_INTERVAL_HOURS` (default 24) a consistent snapshot
+is written to `/data/backups/33rpm-auto-<timestamp>.db`; the newest `BACKUP_KEEP` (default 7) are
+kept. Copy them (or the whole `/data` volume) somewhere else too. On PostgreSQL use `pg_dump`
+(above).
+
+**Restore a SQLite snapshot:**
+
+```bash
+docker compose stop 33rpm
+cp /path/to/data/backups/33rpm-auto-2026-01-01T03-00-00-000Z.db /path/to/data/33rpm.db
+rm -f /path/to/data/33rpm.db-wal /path/to/data/33rpm.db-shm
+docker compose start 33rpm
+```
+
+**Portable full backup (any backend):** `docker exec -it 33rpm 33rpm export-json /data/backups/full.json`
+writes every table to JSON; `33rpm import-json <file>` loads it into an empty database. Settings →
+Import & export also offers CSV/JSON downloads of your own collection and wishlist.
 
 ---
 
